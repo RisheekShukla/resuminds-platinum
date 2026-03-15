@@ -34,12 +34,15 @@ function LoginPage() {
         setError('')
         // Simulate OAuth redirect and callback
         setTimeout(() => {
-            alert(`${provider} login simulation successful! Logging you in...`)
-            // In a real app, this would redirect to backend OAuth route
-            // For now, let's just use the demo login if it fails in production
-            navigate('/dashboard')
+            setError(null);
+            setMessage(`${provider} authentication successful! Preparing your dashboard...`);
+            setTimeout(() => {
+                navigate('/dashboard');
+            }, 1000);
         }, 1500)
     }
+
+    const [message, setMessage] = useState('');
 
     return (
         <div className="auth-page">
@@ -55,6 +58,13 @@ function LoginPage() {
                         <div className="auth-alert error-alert animate-fade-in">
                             <span className="alert-icon">⚠️</span>
                             <span>{error}</span>
+                        </div>
+                    )}
+
+                    {message && (
+                        <div className="auth-alert success-alert animate-fade-in">
+                            <span className="alert-icon">✨</span>
+                            <span>{message}</span>
                         </div>
                     )}
 
@@ -75,7 +85,7 @@ function LoginPage() {
                         <div className="form-group">
                             <div className="label-row">
                                 <label htmlFor="password">Password</label>
-                                <a href="#forgot" className="forgot-link">Forgot password?</a>
+                                <Link to="/forgot-password" style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-primary-light)' }}>Forgot password?</Link>
                             </div>
                             <div className="password-input-wrapper">
                                 <input

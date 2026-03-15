@@ -46,9 +46,19 @@ function DashboardPage() {
                 if (data.success) {
                     setSessions(data.data.sessions || [])
                     
-                    // Calc real practice streak
-                    const streak = calculateStreak(data.data.sessions || [])
-                    setStats({ ...data.data.stats, practiceStreak: streak })
+                    // If new user, set demo stats for psychological motivation
+                    if (!data.data.sessions || data.data.sessions.length === 0) {
+                        setStats({
+                            totalInterviews: 0,
+                            averageScore: 0,
+                            topCategory: 'Pending',
+                            practiceStreak: 0,
+                            isDemo: true
+                        })
+                    } else {
+                        const streak = calculateStreak(data.data.sessions || [])
+                        setStats({ ...data.data.stats, practiceStreak: streak })
+                    }
                 }
             }
         } catch (error) {
@@ -154,7 +164,10 @@ function DashboardPage() {
             <main className="dashboard-container">
                 <header className="dashboard-header animate-fade-in">
                     <div className="welcome-section">
-                        <h1 className="welcome-title">Welcome back, {(user?.name?.split(' ')?.[0] || 'Explorer').slice(0, 15)}{(user?.name?.split(' ')?.[0]?.length > 15 ? '...' : '')} 👋</h1>
+                        <h1 className="welcome-title" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                            <span>Welcome back, {(user?.name?.split(' ')?.[0] || 'Explorer').slice(0, 15)}{(user?.name?.split(' ')?.[0]?.length > 15 ? '...' : '')}</span>
+                            <span style={{ flexShrink: 0 }}>👋</span>
+                        </h1>
                         <p className="welcome-subtitle">Here is an overview of your interview progress.</p>
                     </div>
                     <div className="header-actions">
@@ -203,9 +216,9 @@ function DashboardPage() {
                     <div className="stat-card glass-panel">
                         <div className="stat-header">
                             <span className="stat-icon">⭐</span>
-                            <span className="stat-label">Avg. Score</span>
+                            <span className="stat-label">{stats?.isDemo ? 'Target Score' : 'Avg. Score'}</span>
                         </div>
-                        <span className="stat-value">{stats?.averageScore || 0}<span className="stat-unit">%</span></span>
+                        <span className="stat-value">{stats?.isDemo ? 85 : stats?.averageScore || 0}<span className="stat-unit">%</span></span>
                     </div>
                     <div className="stat-card glass-panel">
                         <div className="stat-header">
@@ -217,9 +230,9 @@ function DashboardPage() {
                     <div className="stat-card glass-panel highlight-card">
                         <div className="stat-header">
                             <span className="stat-icon">🏆</span>
-                            <span className="stat-label">Strongest Area</span>
+                            <span className="stat-label">{stats?.isDemo ? 'Goal Area' : 'Strongest Area'}</span>
                         </div>
-                        <span className="stat-value text-md">{stats?.topCategory || 'N/A'}</span>
+                        <span className="stat-value text-md">{stats?.isDemo ? 'Technical' : stats?.topCategory || 'N/A'}</span>
                     </div>
                 </div>
 
