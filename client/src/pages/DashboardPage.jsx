@@ -154,7 +154,7 @@ function DashboardPage() {
             <main className="dashboard-container">
                 <header className="dashboard-header animate-fade-in">
                     <div className="welcome-section">
-                        <h1 className="welcome-title">Welcome back, {(user?.name?.split(' ')[0] || 'Explorer').slice(0, 15)}{(user?.name?.split(' ')[0]?.length > 15 ? '...' : '')} 👋</h1>
+                        <h1 className="welcome-title">Welcome back, {(user?.name?.split(' ')?.[0] || 'Explorer').slice(0, 15)}{(user?.name?.split(' ')?.[0]?.length > 15 ? '...' : '')} 👋</h1>
                         <p className="welcome-subtitle">Here is an overview of your interview progress.</p>
                     </div>
                     <div className="header-actions">

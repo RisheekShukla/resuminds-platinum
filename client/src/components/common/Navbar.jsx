@@ -31,7 +31,7 @@ function Navbar() {
                             <Link to="/dashboard" className="nav-link">Dashboard</Link>
                             <Link to="/upload" className="nav-link">Practice</Link>
                             <div className="user-profile">
-                                <span className="user-name">Hi, {user.name.split(' ')[0]}</span>
+                                <span className="user-name">Hi, {user?.name?.split(' ')?.[0] || 'User'}</span>
                                 <button onClick={handleLogout} className="logout-button">
                                     Logout
                                 </button>
