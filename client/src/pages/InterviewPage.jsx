@@ -368,13 +368,7 @@ function InterviewPage() {
                             {persona.name} will ask the first question when you're ready. Ensure your microphone is nearby.
                         </p>
                         <button 
-                            style={{
-                                background: 'linear-gradient(45deg, #6366f1, #3b82f6)',
-                                color: 'white', border: 'none', padding: '14px 28px',
-                                borderRadius: '8px', fontSize: '1.1rem', fontWeight: '600',
-                                cursor: 'pointer', transition: 'all 0.2s', width: '100%',
-                                boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)'
-                            }}
+                            className="start-interview-btn"
                             onClick={() => {
                                 setInterviewStarted(true)
                                 // Chrome STRICT POLICY: The first speech Synthesis MUST be triggered

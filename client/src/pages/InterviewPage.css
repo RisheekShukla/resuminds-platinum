@@ -548,3 +548,44 @@
         bottom: 66px;
     }
 }
+/* Start Interview Button Custom Styles */
+.start-interview-btn {
+    background: linear-gradient(135deg, #6366f1, #3b82f6);
+    color: white;
+    border: none;
+    padding: 16px 32px;
+    border-radius: 12px;
+    font-size: 1.2rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    width: 100%;
+    box-shadow: 0 8px 16px rgba(99, 102, 241, 0.4);
+    animation: start-pulse 2s infinite;
+}
+
+.start-interview-btn:hover {
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 0 12px 24px rgba(99, 102, 241, 0.5);
+    background: linear-gradient(135deg, #4f46e5, #2563eb);
+    animation: none;
+}
+
+.start-interview-btn:active {
+    transform: translateY(-2px) scale(0.98);
+}
+
+@keyframes start-pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.7);
+        transform: scale(1);
+    }
+    70% {
+        box-shadow: 0 0 0 15px rgba(99, 102, 241, 0);
+        transform: scale(1.02);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(99, 102, 241, 0);
+        transform: scale(1);
+    }
+}
