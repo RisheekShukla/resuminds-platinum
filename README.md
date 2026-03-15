@@ -66,7 +66,9 @@ The project is architected for zero-cost deployment:
 - **Backend API**: Deploy to [Render](https://render.com)
 - **Database**: [MongoDB Atlas Free Tier](https://www.mongodb.com/cloud/atlas)
 
-See the [Deployment Guide](deployment_guide_path_placeholder) for detailed production steps.
+See the [Deployment Guide](./docs/deployment.md) for detailed production steps.
+- **Handover Manual**: [View here](./docs/handover.md)
+- **Branding Guide**: [View here](./docs/branding.md)
 
 ---
 
