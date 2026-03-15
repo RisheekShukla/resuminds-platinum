@@ -1,0 +1,93 @@
+.persona-container {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    z-index: 2;
+}
+
+.persona-svg {
+    width: 100%;
+    height: 100%;
+    max-width: 320px;
+    filter: drop-shadow(0 10px 30px rgba(0, 0, 0, 0.5));
+    animation: floating-persona 6s ease-in-out infinite;
+}
+
+.persona-container.is-speaking .persona-svg {
+    animation: floating-persona 2s ease-in-out infinite, speaking-vibration 0.2s linear infinite;
+}
+
+@keyframes floating-persona {
+
+    0%,
+    100% {
+        transform: translateY(0) rotate(0);
+    }
+
+    50% {
+        transform: translateY(-10px) rotate(1deg);
+    }
+}
+
+@keyframes speaking-vibration {
+
+    0%,
+    100% {
+        transform: translate(0, 0) scale(1);
+    }
+
+    50% {
+        transform: translate(1px, -1px) scale(1.005);
+    }
+}
+
+.eyes circle {
+    transition: all 0.1s ease;
+}
+
+.mouth path,
+.mouth ellipse {
+    transition: all 0.08s ease;
+}
+
+/* Glass glare effect */
+.glasses rect {
+    stroke-opacity: 0.5;
+}
+
+/* scanline effect overlay */
+.persona-container::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+    background-size: 100% 4px, 3px 100%;
+    pointer-events: none;
+    opacity: 0.2;
+    z-index: 10;
+}
+
+.is-speaking .persona-container::after {
+    opacity: 0.4;
+    animation: scan-flicker 0.1s infinite;
+}
+
+@keyframes scan-flicker {
+    0% {
+        opacity: 0.2;
+    }
+
+    50% {
+        opacity: 0.3;
+    }
+
+    100% {
+        opacity: 0.2;
+    }
+}

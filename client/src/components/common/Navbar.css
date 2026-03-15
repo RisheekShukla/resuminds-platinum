@@ -1,0 +1,101 @@
+.navbar {
+    height: 70px;
+    display: flex;
+    align-items: center;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    background: rgba(15, 23, 42, 0.8);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.navbar-container {
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 var(--space-lg);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.navbar-logo {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    font-size: var(--font-size-xl);
+    font-weight: 700;
+    color: var(--color-text);
+}
+
+.logo-sparkle {
+    font-size: 1.25rem;
+}
+
+.logo-text {
+    background: linear-gradient(135deg, white 0%, var(--color-primary-light) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.navbar-links {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xl);
+}
+
+.nav-link {
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    transition: color var(--transition-fast);
+}
+
+.nav-link:hover {
+    color: var(--color-text);
+}
+
+.btn-signup {
+    padding: var(--space-sm) var(--space-lg);
+    background: var(--color-primary);
+    color: white !important;
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-glow);
+}
+
+.btn-signup:hover {
+    background: var(--color-primary-dark);
+    transform: translateY(-1px);
+}
+
+.user-profile {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    padding-left: var(--space-lg);
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.user-name {
+    font-weight: 500;
+    color: var(--color-text);
+    font-size: var(--font-size-sm);
+}
+
+.logout-button {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    padding: var(--space-xs) var(--space-sm);
+    border: 1px solid var(--color-bg-tertiary);
+    border-radius: var(--radius-sm);
+    transition: all var(--transition-fast);
+}
+
+.logout-button:hover {
+    background: var(--color-error);
+    color: white;
+    border-color: var(--color-error);
+}
