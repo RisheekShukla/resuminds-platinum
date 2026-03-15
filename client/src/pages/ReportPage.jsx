@@ -39,7 +39,7 @@ function ReportPage() {
     const fetchReport = async () => {
         try {
             setLoading(true)
-            const response = await fetch(`/api/report/${sessionId}`)
+            const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/report/${sessionId}`)
             if (response.ok) {
                 const data = await response.json()
                 if (data.success && data.data) {

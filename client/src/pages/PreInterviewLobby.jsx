@@ -30,7 +30,7 @@ function PreInterviewLobby() {
 
     const fetchSession = async () => {
         try {
-            const res = await fetch(`/api/interview/${sessionId}`)
+            const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/interview/${sessionId}`)
             if (res.ok) {
                 const data = await res.json()
                 if (data.success) setSessionData(data.data)
