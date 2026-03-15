@@ -75,7 +75,7 @@ function UploadPage() {
 
             setUploadProgress('Analyzing your resume...')
 
-            const uploadResponse = await fetch('/api/resume/upload', {
+            const uploadResponse = await fetch(`${import.meta.env.VITE_API_URL || ''}/resume/upload`, {
                 method: 'POST',
                 body: formData,
             })
@@ -92,7 +92,7 @@ function UploadPage() {
 
             setUploadProgress('Starting your interview...')
 
-            const startResponse = await fetch('/api/interview/start', {
+            const startResponse = await fetch(`${import.meta.env.VITE_API_URL || ''}/interview/start`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -128,7 +128,7 @@ function UploadPage() {
         setUploadProgress('Starting quick interview...')
 
         try {
-            const startResponse = await fetch('/api/interview/start', {
+            const startResponse = await fetch(`${import.meta.env.VITE_API_URL || ''}/interview/start`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

@@ -163,7 +163,7 @@ function InterviewPage() {
     const fetchQuestions = async () => {
         try {
             setLoading(true)
-            const response = await fetch(`/api/interview/${sessionId}`)
+            const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/interview/${sessionId}`)
             if (response.ok) {
                 const data = await response.json()
                 if (data.success && data.data?.questions?.length > 0) {
@@ -173,7 +173,7 @@ function InterviewPage() {
                     return
                 }
             }
-            const startResponse = await fetch('/api/interview/start', {
+            const startResponse = await fetch(`${import.meta.env.VITE_API_URL || ''}/interview/start`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ type: 'mixed' }),
@@ -225,7 +225,7 @@ function InterviewPage() {
 
         try {
             console.log(`[InterviewPage] Submitting answer for Q: ${currentQuestion.questionId}`)
-            const response = await fetch(`/api/interview/${sessionId}/answer`, {
+            const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/interview/${sessionId}/answer`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -269,7 +269,7 @@ function InterviewPage() {
         killEverything()
         setFinishing(true)
         try {
-            await fetch(`/api/interview/${sessionId}/complete`, { method: 'POST' })
+            await fetch(`${import.meta.env.VITE_API_URL || ''}/interview/${sessionId}/complete`, { method: 'POST' })
             setTimeout(() => navigate(`/report/${sessionId}`), 4000)
         } catch (err) {
             console.error('Error completing interview:', err)
@@ -299,7 +299,7 @@ function InterviewPage() {
             // Submit current partial answer if any
             const answerText = currentAnswer.trim()
             if (answerText && currentQuestion) {
-                await fetch(`/api/interview/${sessionId}/answer`, {
+                await fetch(`${import.meta.env.VITE_API_URL || ''}/interview/${sessionId}/answer`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -309,7 +309,7 @@ function InterviewPage() {
                     }),
                 })
             }
-            await fetch(`/api/interview/${sessionId}/complete`, { method: 'POST' })
+            await fetch(`${import.meta.env.VITE_API_URL || ''}/interview/${sessionId}/complete`, { method: 'POST' })
         } catch (err) {
             console.error('Error completing interview on leave:', err)
         }

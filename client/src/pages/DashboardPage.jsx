@@ -40,7 +40,7 @@ function DashboardPage() {
     const fetchDashboardData = async () => {
         setLoading(true)
         try {
-            const response = await fetch('/api/history/sessions')
+            const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/history/sessions`)
             if (response.ok) {
                 const data = await response.json()
                 if (data.success) {
