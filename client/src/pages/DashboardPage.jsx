@@ -85,10 +85,14 @@ function DashboardPage() {
     const completedSessions = [...sessions].filter(s => s.report).reverse()
 
     const lineChartData = {
-        labels: completedSessions.map(s => new Date(s.startedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })),
+        labels: completedSessions.length > 0 
+            ? completedSessions.map(s => new Date(s.startedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }))
+            : ['Goal 1', 'Goal 2', 'Goal 3', 'Goal 4', 'Goal 5'],
         datasets: [{
-            label: 'Overall Performance %',
-            data: completedSessions.map(s => s.report.overallScore),
+            label: completedSessions.length > 0 ? 'Overall Performance %' : 'Growth Potential',
+            data: completedSessions.length > 0 
+                ? completedSessions.map(s => s.report.overallScore)
+                : [65, 72, 78, 85, 92],
             borderColor: '#818cf8',
             backgroundColor: 'rgba(129, 140, 248, 0.1)',
             borderWidth: 3,
@@ -104,14 +108,14 @@ function DashboardPage() {
     const radarChartData = {
         labels: ['Technical', 'Communication', 'Problem Solving', 'Resume Focus', 'Job Fit'],
         datasets: [{
-            label: 'Current Mastery',
-            data: [
+            label: completedSessions.length > 0 ? 'Current Mastery' : 'Demo Profile',
+            data: completedSessions.length > 0 ? [
                 stats?.avgTechnical || 0,
                 stats?.avgCommunication || 0,
                 stats?.avgProblemSolving || 0,
                 stats?.avgResumeAlignment || 0,
                 stats?.avgClosenessToJobDescription || 0
-            ],
+            ] : [85, 75, 90, 80, 70],
             backgroundColor: 'rgba(52, 211, 153, 0.2)',
             borderColor: '#34d399',
             borderWidth: 2,
@@ -150,7 +154,7 @@ function DashboardPage() {
             <main className="dashboard-container">
                 <header className="dashboard-header animate-fade-in">
                     <div className="welcome-section">
-                        <h1 className="welcome-title">Welcome back, {user?.name?.split(' ')[0] || 'Explorer'} 👋</h1>
+                        <h1 className="welcome-title">Welcome back, {(user?.name?.split(' ')[0] || 'Explorer').slice(0, 15)}{(user?.name?.split(' ')[0]?.length > 15 ? '...' : '')} 👋</h1>
                         <p className="welcome-subtitle">Here is an overview of your interview progress.</p>
                     </div>
                     <div className="header-actions">
@@ -223,55 +227,47 @@ function DashboardPage() {
                     
                     {/* Main Analytics Area */}
                     <div className="analytics-column">
-                        {completedSessions.length > 0 ? (
-                            <>
-                                <div className="chart-panel glass-panel">
-                                    <div className="panel-header">
-                                        <h3>Performance Trend</h3>
-                                        <select className="glass-select">
-                                            <option>Last 30 Days</option>
-                                            <option>All Time</option>
-                                        </select>
-                                    </div>
-                                    <div className="chart-wrapper">
-                                        <Line data={lineChartData} options={chartOptions} />
-                                    </div>
-                                </div>
-
-                                <div className="chart-panel glass-panel">
-                                    <div className="panel-header">
-                                        <h3>Skill Mastery Radar</h3>
-                                    </div>
-                                    <div className="chart-wrapper auto-height">
-                                        <Radar
-                                            data={radarChartData}
-                                            options={{
-                                                ...chartOptions,
-                                                scales: {
-                                                    r: {
-                                                        angleLines: { color: 'rgba(255, 255, 255, 0.05)' },
-                                                        grid: { color: 'rgba(255, 255, 255, 0.05)' },
-                                                        pointLabels: { color: '#94a3b8', font: { size: 12 } },
-                                                        ticks: { display: false },
-                                                        suggestedMin: 0,
-                                                        suggestedMax: 100
-                                                    }
-                                                }
-                                            }}
-                                        />
-                                    </div>
-                                </div>
-                            </>
-                        ) : (
-                            <div className="empty-analytics glass-panel">
-                                <div className="empty-state-content">
-                                    <span className="empty-state-icon">📈</span>
-                                    <h3>Unlock Your Analytics</h3>
-                                    <p>Complete your first interview to see performance trends and skill radars here.</p>
-                                    <Link to="/upload" className="primary-button small">Start Interview</Link>
-                                </div>
+                        <div className="chart-panel glass-panel">
+                            <div className="panel-header">
+                                <h3>{completedSessions.length > 0 ? 'Performance Trend' : 'Growth Path (Example)'}</h3>
+                                <select className="glass-select">
+                                    <option>Last 30 Days</option>
+                                    <option>All Time</option>
+                                </select>
                             </div>
-                        )}
+                            <div className="chart-wrapper">
+                                <Line data={lineChartData} options={chartOptions} />
+                            </div>
+                            {completedSessions.length === 0 && (
+                                <div className="demo-overlay-text">
+                                    <p>Start your first interview to see real data!</p>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="chart-panel glass-panel">
+                            <div className="panel-header">
+                                <h3>{completedSessions.length > 0 ? 'Skill Mastery Radar' : 'Target Skills (Example)'}</h3>
+                            </div>
+                            <div className="chart-wrapper auto-height">
+                                <Radar
+                                    data={radarChartData}
+                                    options={{
+                                        ...chartOptions,
+                                        scales: {
+                                            r: {
+                                                angleLines: { color: 'rgba(255, 255, 255, 0.05)' },
+                                                grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                                                pointLabels: { color: '#94a3b8', font: { size: 12 } },
+                                                ticks: { display: false },
+                                                suggestedMin: 0,
+                                                suggestedMax: 100
+                                            }
+                                        }
+                                    }}
+                                />
+                            </div>
+                        </div>
                     </div>
 
                     {/* History Sidebar */}

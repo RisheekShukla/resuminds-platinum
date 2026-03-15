@@ -29,6 +29,18 @@ function LoginPage() {
         }
     }
 
+    const handleSocialAuth = (provider) => {
+        setLoading(true)
+        setError('')
+        // Simulate OAuth redirect and callback
+        setTimeout(() => {
+            alert(`${provider} login simulation successful! Logging you in...`)
+            // In a real app, this would redirect to backend OAuth route
+            // For now, let's just use the demo login if it fails in production
+            navigate('/dashboard')
+        }, 1500)
+    }
+
     return (
         <div className="auth-page">
             <Navbar />
@@ -100,11 +112,11 @@ function LoginPage() {
                     </div>
 
                     <div className="social-login">
-                        <button type="button" className="social-button google-btn" onClick={() => alert('Social login coming soon!')}>
+                        <button type="button" className="social-button google-btn" onClick={() => handleSocialAuth('Google')}>
                             <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="Google" />
                             Google
                         </button>
-                        <button type="button" className="social-button github-btn" onClick={() => alert('Social login coming soon!')}>
+                        <button type="button" className="social-button github-btn" onClick={() => handleSocialAuth('GitHub')}>
                             <img src="https://upload.wikimedia.org/wikipedia/commons/9/91/Octicons-mark-github.svg" alt="GitHub" />
                             GitHub
                         </button>
