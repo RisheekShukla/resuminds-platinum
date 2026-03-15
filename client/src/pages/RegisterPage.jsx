@@ -17,15 +17,29 @@ function RegisterPage() {
     const { register } = useAuth()
     const navigate = useNavigate()
 
+    const validateEmail = (email) => {
+        return String(email)
+            .toLowerCase()
+            .match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/);
+    }
+
+    const validatePassword = (pass) => {
+        return pass.length >= 6;
+    }
+
     const handleSubmit = async (e) => {
         e.preventDefault()
         setError('')
+
+        if (!validateEmail(email)) {
+            return setError('Please enter a valid email address.')
+        }
 
         if (password !== confirmPassword) {
             return setError('Passwords do not match.')
         }
 
-        if (password.length < 6) {
+        if (!validatePassword(password)) {
             return setError('Password must be at least 6 characters.')
         }
 
@@ -46,10 +60,15 @@ function RegisterPage() {
         setError('')
         // Simulate OAuth redirect and callback
         setTimeout(() => {
-            alert(`${provider} registration simulation successful! Logging you in...`)
-            navigate('/dashboard')
+            setError(null);
+            setMessage(`${provider} registration successful! Preparing your profile...`);
+            setTimeout(() => {
+                navigate('/dashboard');
+            }, 1000);
         }, 1500)
     }
+
+    const [message, setMessage] = useState('');
 
     return (
         <div className="auth-page">
@@ -65,6 +84,13 @@ function RegisterPage() {
                         <div className="auth-alert error-alert animate-fade-in">
                             <span className="alert-icon">⚠️</span>
                             <span>{error}</span>
+                        </div>
+                    )}
+
+                    {message && (
+                        <div className="auth-alert success-alert animate-fade-in">
+                            <span className="alert-icon">✨</span>
+                            <span>{message}</span>
                         </div>
                     )}
 
