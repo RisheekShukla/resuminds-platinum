@@ -21,6 +21,7 @@
     margin-bottom: var(--space-xs);
     background: linear-gradient(135deg, #fff, #a78bfa);
     -webkit-background-clip: text;
+    background-clip: text;
     -webkit-text-fill-color: transparent;
 }
 
@@ -329,11 +330,27 @@
     padding: var(--space-md) var(--space-2xl);
     font-size: var(--font-size-md);
     min-width: 200px;
+    background: linear-gradient(135deg, #6366f1, #3b82f6);
+    color: white;
+    border: none;
+    font-weight: 700;
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    transition: all var(--transition-normal);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+}
+
+.start-interview-button:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(99, 102, 241, 0.5);
+    background: linear-gradient(135deg, #4f46e5, #2563eb);
 }
 
 .start-interview-button:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .loading-state {

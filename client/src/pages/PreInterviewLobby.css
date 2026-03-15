@@ -220,26 +220,35 @@
 /* Join Button */
 .join-now-btn {
     width: 100%;
-    padding: 14px 24px;
-    background: #4285f4;
+    padding: 16px 24px;
+    background: linear-gradient(135deg, #6366f1, #3b82f6);
     color: white;
     border: none;
-    border-radius: 24px;
-    font-size: 1rem;
+    border-radius: var(--radius-full);
+    font-size: 1.1rem;
     font-weight: 700;
     cursor: pointer;
-    transition: all 0.2s;
-    letter-spacing: 0.01em;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    letter-spacing: 0.02em;
+    box-shadow: 0 8px 20px rgba(99, 102, 241, 0.4);
+    animation: join-pulse 2s infinite;
 }
 
 .join-now-btn:hover {
-    background: #3367d6;
-    box-shadow: 0 8px 24px rgba(66, 133, 244, 0.35);
-    transform: translateY(-1px);
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: 0 12px 30px rgba(99, 102, 241, 0.5);
+    background: linear-gradient(135deg, #4f46e5, #2563eb);
+    animation: none;
 }
 
 .join-now-btn:active {
-    transform: translateY(0);
+    transform: translateY(-1px);
+}
+
+@keyframes join-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.7); }
+    70% { box-shadow: 0 0 0 15px rgba(99, 102, 241, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
 }
 
 /* ─── Responsive ─── */
