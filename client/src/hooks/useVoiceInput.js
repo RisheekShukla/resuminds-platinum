@@ -127,8 +127,9 @@ export function useVoiceInput(options = {}) {
                         fatalErrorRef.current = true
                         break
                     case 'network':
-                        setError('Speech service blocked. Use the text box to answer.')
-                        fatalErrorRef.current = true
+                        console.warn('[VoiceInput] Network error (transient). Will attempt restart.')
+                        setError('Speech service connection issue. Retrying...')
+                        fatalErrorRef.current = false // Make non-fatal to allow onend to restart
                         break
                     default:
                         setError(`Speech error: ${event.error}. Use text box.`)
