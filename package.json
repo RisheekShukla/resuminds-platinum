@@ -8,7 +8,7 @@
     "dev:client": "npm --prefix client run dev",
     "dev:server": "npm --prefix server run dev",
     "install:all": "npm install && npm --prefix client install && npm --prefix server install",
-    "build": "npm --prefix client run build"
+    "build": "npm --prefix client install && npm --prefix client run build"
   },
   "keywords": ["ai", "interview", "mock-interview", "resume"],
   "author": "",
