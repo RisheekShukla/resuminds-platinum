@@ -80,25 +80,29 @@ export function useVoiceInput(options = {}) {
                 if (isListeningRef.current) {
                     console.log('[VoiceInput] 🔄 Attempting auto-restart...')
                     restartCountRef.current += 1
+                    
                     if (restartCountRef.current > 20) {
-                        console.error('[VoiceInput] Too many restarts')
-                        setIsListening(false)
-                        isListeningRef.current = false
-                        setError('Mic stopped responding. Check connection and retry.')
+                        setError('Speech service unavailable. Use the text box or click mic to retry.')
+                        setConnectionStatus('error')
+                        stopListening()
                         return
                     }
+
+                    // If we've had 3 network errors in a row, recreate the whole engine
+                    const needsRecreation = restartCountRef.current % 3 === 0;
+
                     if (restartTimerRef.current) clearTimeout(restartTimerRef.current)
                     restartTimerRef.current = setTimeout(() => {
-                        if (isListeningRef.current && recognitionRef.current && !fatalErrorRef.current) {
+                        if (isListeningRef.current && !fatalErrorRef.current) {
                             try {
+                                if (needsRecreation) {
+                                    console.log('[VoiceInput] 🛠 Recreating Engine for better stability...');
+                                    recognitionRef.current = createRecognition();
+                                }
                                 recognitionRef.current.start()
-                            } catch (err) {
-                                // Already started is fine
-                            }
+                            } catch (err) { /* ignore already started */ }
                         }
-                    }, 300)
-                } else {
-                    setIsListening(false)
+                    }, 1000) // Longer delay to let network settle
                 }
             }
 
