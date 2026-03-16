@@ -6,8 +6,12 @@ import rateLimit from 'express-rate-limit'
 import morgan from 'morgan'
 import routes from './routes/index.js'
 import errorHandler from './middleware/errorHandler.js'
+import passport from './config/passport.js'
 
 const app = express()
+
+// ─── Passport ───
+app.use(passport.initialize())
 
 // ─── Security ───
 app.use(helmet({

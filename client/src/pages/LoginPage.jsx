@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import Navbar from '../components/common/Navbar'
 import './AuthPages.css'
@@ -13,6 +13,19 @@ function LoginPage() {
 
     const { login } = useAuth()
     const navigate = useNavigate()
+    const location = useLocation()
+
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        const token = params.get('token');
+        if (token) {
+            localStorage.setItem('resuminds_token', token);
+            setMessage('Social login successful! Redirecting...');
+            setTimeout(() => {
+                window.location.href = '/dashboard'; // Force full reload to refresh AuthContext
+            }, 1000);
+        }
+    }, [location, navigate]);
 
     const handleSubmit = async (e) => {
         e.preventDefault()
@@ -32,14 +45,8 @@ function LoginPage() {
     const handleSocialAuth = (provider) => {
         setLoading(true)
         setError('')
-        // Simulate OAuth redirect and callback
-        setTimeout(() => {
-            setError(null);
-            setMessage(`${provider} authentication successful! Preparing your dashboard...`);
-            setTimeout(() => {
-                navigate('/dashboard');
-            }, 1000);
-        }, 1500)
+        const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+        window.location.href = `${apiBase}/auth/${provider.toLowerCase()}`;
     }
 
     const [message, setMessage] = useState('');

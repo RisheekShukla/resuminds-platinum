@@ -58,14 +58,8 @@ function RegisterPage() {
     const handleSocialAuth = (provider) => {
         setLoading(true)
         setError('')
-        // Simulate OAuth redirect and callback
-        setTimeout(() => {
-            setError(null);
-            setMessage(`${provider} registration successful! Preparing your profile...`);
-            setTimeout(() => {
-                navigate('/dashboard');
-            }, 1000);
-        }, 1500)
+        const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+        window.location.href = `${apiBase}/auth/${provider.toLowerCase()}`;
     }
 
     const [message, setMessage] = useState('');
