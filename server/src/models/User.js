@@ -11,7 +11,7 @@ const userSchema = new mongoose.Schema({
     },
     password: {
         type: String,
-        required: false, // Made optional for social login users
+        required: true,
         minlength: 6,
     },
     name: {
@@ -19,18 +19,6 @@ const userSchema = new mongoose.Schema({
         required: true,
         trim: true,
     },
-    googleId: {
-        type: String,
-        unique: true,
-        sparse: true, // Allows multiple null values
-    },
-    githubId: {
-        type: String,
-        unique: true,
-        sparse: true,
-    },
-    resetPasswordToken: String,
-    resetPasswordExpires: Date,
 }, {
     timestamps: true,
 })

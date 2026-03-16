@@ -1,7 +1,4 @@
-const rawUrl = import.meta.env.VITE_API_URL || '';
-const API_URL = rawUrl.endsWith('/') ? rawUrl.slice(0, -1) : rawUrl;
-
-console.log('[Debug] authService.js configured with API_URL:', API_URL || '(empty/relative)');
+const API_URL = import.meta.env.VITE_API_URL || '';
 
 /**
  * Authentication Service
@@ -80,35 +77,7 @@ const authService = {
     /**
      * Get token from storage
      */
-    getToken: () => localStorage.getItem('resuminds_token'),
-
-    /**
-     * Forgot Password
-     */
-    forgotPassword: async (email) => {
-        const response = await fetch(`${API_URL}/auth/forgot-password`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email })
-        });
-        const data = await response.json();
-        if (!data.success) throw new Error(data.error || 'Failed to send reset link');
-        return data;
-    },
-
-    /**
-     * Reset Password
-     */
-    resetPassword: async (token, password) => {
-        const response = await fetch(`${API_URL}/auth/reset-password/${token}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ password })
-        });
-        const data = await response.json();
-        if (!data.success) throw new Error(data.error || 'Failed to reset password');
-        return data;
-    }
+    getToken: () => localStorage.getItem('resuminds_token')
 };
 
 export default authService;

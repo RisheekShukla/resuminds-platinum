@@ -17,29 +17,15 @@ function RegisterPage() {
     const { register } = useAuth()
     const navigate = useNavigate()
 
-    const validateEmail = (email) => {
-        return String(email)
-            .toLowerCase()
-            .match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/);
-    }
-
-    const validatePassword = (pass) => {
-        return pass.length >= 6;
-    }
-
     const handleSubmit = async (e) => {
         e.preventDefault()
         setError('')
-
-        if (!validateEmail(email)) {
-            return setError('Please enter a valid email address.')
-        }
 
         if (password !== confirmPassword) {
             return setError('Passwords do not match.')
         }
 
-        if (!validatePassword(password)) {
+        if (password.length < 6) {
             return setError('Password must be at least 6 characters.')
         }
 
@@ -55,15 +41,6 @@ function RegisterPage() {
         }
     }
 
-    const handleSocialAuth = (provider) => {
-        setLoading(true)
-        setError('')
-        const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-        window.location.href = `${apiBase}/auth/${provider.toLowerCase()}`;
-    }
-
-    const [message, setMessage] = useState('');
-
     return (
         <div className="auth-page">
             <Navbar />
@@ -78,13 +55,6 @@ function RegisterPage() {
                         <div className="auth-alert error-alert animate-fade-in">
                             <span className="alert-icon">⚠️</span>
                             <span>{error}</span>
-                        </div>
-                    )}
-
-                    {message && (
-                        <div className="auth-alert success-alert animate-fade-in">
-                            <span className="alert-icon">✨</span>
-                            <span>{message}</span>
                         </div>
                     )}
 
@@ -170,11 +140,11 @@ function RegisterPage() {
                     </div>
 
                     <div className="social-login">
-                        <button type="button" className="social-button google-btn" onClick={() => handleSocialAuth('Google')}>
+                        <button type="button" className="social-button google-btn" onClick={() => alert('Social login coming soon!')}>
                             <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="Google" />
                             Google
                         </button>
-                        <button type="button" className="social-button github-btn" onClick={() => handleSocialAuth('GitHub')}>
+                        <button type="button" className="social-button github-btn" onClick={() => alert('Social login coming soon!')}>
                             <img src="https://upload.wikimedia.org/wikipedia/commons/9/91/Octicons-mark-github.svg" alt="GitHub" />
                             GitHub
                         </button>

@@ -16,7 +16,6 @@ export function useVoiceInput(options = {}) {
     } = options
 
     const [isListening, setIsListening] = useState(false)
-    const [connectionStatus, setConnectionStatus] = useState('idle') // idle, listening, reconnecting, error
     const [transcript, setTranscript] = useState('')
     const [interimTranscript, setInterimTranscript] = useState('')
     const [isSupported, setIsSupported] = useState(false)
@@ -48,19 +47,19 @@ export function useVoiceInput(options = {}) {
 
         const createRecognition = () => {
             const recognition = new SpeechRecognition()
-            recognition.continuous = true // Stay open!
+            recognition.continuous = false
             recognition.interimResults = interimResults
             recognition.lang = language
             recognition.maxAlternatives = 1
 
             recognition.onstart = () => {
                 console.log('[VoiceInput] ✅ Recognition started')
+                // Clear start timeout — we successfully started!
                 if (startTimeoutRef.current) {
                     clearTimeout(startTimeoutRef.current)
                     startTimeoutRef.current = null
                 }
                 setIsListening(true)
-                setConnectionStatus('listening')
                 isListeningRef.current = true
                 fatalErrorRef.current = false
                 setLastResultTimestamp(Date.now())
@@ -78,31 +77,32 @@ export function useVoiceInput(options = {}) {
                 }
 
                 if (isListeningRef.current) {
-                    console.log('[VoiceInput] 🔄 Attempting auto-restart...')
                     restartCountRef.current += 1
-                    
-                    if (restartCountRef.current > 20) {
-                        setError('Speech service unavailable. Use the text box or click mic to retry.')
-                        setConnectionStatus('error')
-                        stopListening()
+                    if (restartCountRef.current > 10) {
+                        console.error('[VoiceInput] Too many restarts')
+                        setIsListening(false)
+                        isListeningRef.current = false
+                        setError('Mic stopped responding. Use the text box or click mic to retry.')
                         return
                     }
-
-                    // If we've had 3 network errors in a row, recreate the whole engine
-                    const needsRecreation = restartCountRef.current % 3 === 0;
-
+                    const delay = Math.min(restartCountRef.current * 300, 2000)
                     if (restartTimerRef.current) clearTimeout(restartTimerRef.current)
                     restartTimerRef.current = setTimeout(() => {
-                        if (isListeningRef.current && !fatalErrorRef.current) {
+                        if (isListeningRef.current && recognitionRef.current && !fatalErrorRef.current) {
                             try {
-                                if (needsRecreation) {
-                                    console.log('[VoiceInput] 🛠 Recreating Engine for better stability...');
-                                    recognitionRef.current = createRecognition();
-                                }
                                 recognitionRef.current.start()
-                            } catch (err) { /* ignore already started */ }
+                            } catch (err) {
+                                if (!err.message?.includes('already started')) {
+                                    console.error('[VoiceInput] Restart failed:', err.message)
+                                    setIsListening(false)
+                                    isListeningRef.current = false
+                                    setError('Mic restart failed. Use the text box.')
+                                }
+                            }
                         }
-                    }, 1000) // Longer delay to let network settle
+                    }, delay)
+                } else {
+                    setIsListening(false)
                 }
             }
 
@@ -115,8 +115,7 @@ export function useVoiceInput(options = {}) {
 
                 switch (event.error) {
                     case 'no-speech':
-                        // In continuous mode, no-speech is just silence
-                        return 
+                        return  // Soft — onend will restart
                     case 'aborted':
                         return  // Normal stop()
                     case 'audio-capture':
@@ -129,22 +128,16 @@ export function useVoiceInput(options = {}) {
                         break
                     case 'network':
                         console.warn('[VoiceInput] Network error (transient). Will attempt restart.')
-                        setError('Speech service connectivity issue. Reconnecting...')
-                        setConnectionStatus('reconnecting')
-                        isListeningRef.current = true // Keep intent to listen
-                        fatalErrorRef.current = false 
-                        callbacksRef.current.onError(event.error)
-                        return 
+                        setError('Speech service connection issue. Retrying...')
+                        fatalErrorRef.current = false // Make non-fatal to allow onend to restart
+                        break
                     default:
                         setError(`Speech error: ${event.error}. Use text box.`)
                         fatalErrorRef.current = true
-                        setConnectionStatus('error')
                 }
 
-                if (fatalErrorRef.current) {
-                    setIsListening(false)
-                    isListeningRef.current = false
-                }
+                setIsListening(false)
+                isListeningRef.current = false
                 callbacksRef.current.onError(event.error)
             }
 
@@ -254,7 +247,6 @@ export function useVoiceInput(options = {}) {
 
     return {
         isListening,
-        connectionStatus,
         isSupported,
         transcript,
         interimTranscript,

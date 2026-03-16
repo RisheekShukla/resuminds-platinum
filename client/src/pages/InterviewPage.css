@@ -233,26 +233,10 @@
 /* Fallback Text Input */
 .fallback-input-container {
     display: flex;
-    flex-direction: column;
-    gap: 8px;
+    gap: var(--space-sm);
     margin-top: var(--space-md);
     padding-top: var(--space-md);
     border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.submit-error-toast {
-    font-size: 0.75rem;
-    color: #fca5a5;
-    background: rgba(239, 68, 68, 0.1);
-    padding: 6px 12px;
-    border-radius: 6px;
-    margin-bottom: 4px;
-    animation: fade-in 0.3s ease;
-}
-
-.fallback-input-row {
-    display: flex;
-    gap: var(--space-sm);
 }
 
 .fallback-input {
@@ -309,56 +293,25 @@
 .mic-live {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 6px;
     font-size: 0.7rem;
     font-weight: 600;
     color: #10b981;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    background: rgba(16, 185, 129, 0.1);
-    padding: 6px 12px;
-    border-radius: 20px;
-    transition: all 0.3s ease;
 }
 
-.mic-live.reconnecting {
-    color: #fbbf24;
-    background: rgba(251, 191, 36, 0.1);
-    animation: flash 1s infinite;
+.mic-live-dot {
+    width: 6px;
+    height: 6px;
+    background: #10b981;
+    border-radius: 50%;
+    animation: mic-pulse-tiny 1.5s infinite;
 }
 
-.mic-meter-mini {
-    display: flex;
-    gap: 3px;
-    align-items: flex-end;
-    height: 14px;
-}
-
-.mic-meter-mini .m-bar {
-    width: 3px;
-    height: 4px;
-    background: rgba(255, 255, 255, 0.2);
-    border-radius: 1px;
-    transition: height 0.1s ease, background 0.1s ease;
-}
-
-.mic-live.reconnecting .m-bar {
-    background: rgba(251, 191, 36, 0.2);
-}
-
-.mic-meter-mini .m-bar.lit {
-    background: currentColor;
-}
-
-.mic-meter-mini .m-bar:nth-child(1) { height: 4px; }
-.mic-meter-mini .m-bar:nth-child(2) { height: 7px; }
-.mic-meter-mini .m-bar:nth-child(3) { height: 10px; }
-.mic-meter-mini .m-bar:nth-child(4) { height: 8px; }
-.mic-meter-mini .m-bar:nth-child(5) { height: 6px; }
-
-.mic-status-text {
-    font-size: 0.65rem;
-    white-space: nowrap;
+@keyframes mic-pulse-tiny {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(1.4); }
 }
 
 .mic-error {

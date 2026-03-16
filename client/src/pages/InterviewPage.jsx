@@ -14,10 +14,6 @@ const personaMap = {
     'founder': { name: 'Sam', role: 'Startup Founder' }
 }
 
-const rawApiUrl = import.meta.env.VITE_API_URL || '';
-const API_URL = rawApiUrl.endsWith('/') ? rawApiUrl.slice(0, -1) : rawApiUrl;
-console.log('[Debug] InterviewPage API_URL:', API_URL || '(relative)');
-
 function InterviewPage() {
     const { sessionId } = useParams()
     const navigate = useNavigate()
@@ -41,14 +37,6 @@ function InterviewPage() {
     const [leaving, setLeaving] = useState(false)
     const [micFailed, setMicFailed] = useState(false) // permanent text-mode flag
     const [submitting, setSubmitting] = useState(false) // visible loading state for Send btn
-    const [submitError, setSubmitError] = useState(null)
-    const [localMicLevel, setLocalMicLevel] = useState(0)
-
-    // Audio context for local mic visualization (like the lobby)
-    const audioContextRef = useRef(null)
-    const analyzerRef = useRef(null)
-    const animationFrameRef = useRef(null)
-    const micStreamRef = useRef(null)
 
     // Elapsed timer — starts once loading finishes, stops when interview ends
     useEffect(() => {
@@ -91,7 +79,6 @@ function InterviewPage() {
 
     const {
         isListening,
-        connectionStatus,
         interimTranscript,
         lastResultTimestamp,
         error: voiceError,
@@ -116,49 +103,19 @@ function InterviewPage() {
     const killEverything = useCallback(() => {
         interviewEndedRef.current = true
         if (elapsedTimerRef.current) clearInterval(elapsedTimerRef.current)
-        if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current)
-        if (audioContextRef.current) {
-            try { audioContextRef.current.close() } catch (e) {}
-        }
-        if (micStreamRef.current) {
-            micStreamRef.current.getTracks().forEach(t => t.stop())
-        }
         stopListening()
         stopSpeaking()
     }, [stopListening, stopSpeaking])
 
     // Fetch questions on mount
     useEffect(() => {
+        // Strict mode fix: reset the ref since React might run setup->cleanup->setup
         interviewEndedRef.current = false
         fetchQuestions()
-        setupLocalMic() // Start local mic monitoring immediately
         
+        // Cleanup when component unmounts
         return () => { killEverything() }
     }, [sessionId])
-
-    const setupLocalMic = async () => {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-            micStreamRef.current = stream
-            audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)()
-            const source = audioContextRef.current.createMediaStreamSource(stream)
-            analyzerRef.current = audioContextRef.current.createAnalyser()
-            analyzerRef.current.fftSize = 256
-            source.connect(analyzerRef.current)
-
-            const updateLevel = () => {
-                if (interviewEndedRef.current) return
-                const dataArray = new Uint8Array(analyzerRef.current.frequencyBinCount)
-                analyzerRef.current.getByteFrequencyData(dataArray)
-                const average = dataArray.reduce((a, b) => a + b) / dataArray.length
-                setLocalMicLevel(average)
-                animationFrameRef.current = requestAnimationFrame(updateLevel)
-            }
-            updateLevel()
-        } catch (err) {
-            console.warn('[InterviewPage] Local mic visualization failed:', err)
-        }
-    }
 
     // Auto-speak subsequent questions (index > 0)
     useEffect(() => {
@@ -176,23 +133,19 @@ function InterviewPage() {
     // Auto-start mic after AI finishes speaking
     // ONLY if: mic hasn't fatally failed AND interview is still active
     useEffect(() => {
-        if (!interviewStarted || interviewEndedRef.current || micFailed || finishing || showLeaveModal) {
-            if (isListening) stopListening()
-            return
-        }
+        if (!interviewStarted || interviewEndedRef.current || micFailed) return
 
-        if (aiSpeaking) {
-            if (isListening) stopListening()
-        } else {
-            // AI stopped speaking, start mic after a slight delay
+        if (!aiSpeaking && !finishing && !showLeaveModal && currentQuestion && !voiceError) {
             const timer = setTimeout(() => {
-                if (!interviewEndedRef.current && !micFailed && !aiSpeaking) {
+                if (!isListening && !interviewEndedRef.current && !micFailed) {
                     startListening()
                 }
             }, 500)
             return () => clearTimeout(timer)
+        } else if (aiSpeaking && isListening) {
+            stopListening()
         }
-    }, [aiSpeaking, finishing, showLeaveModal, currentQuestion, micFailed, interviewStarted])
+    }, [aiSpeaking, finishing, showLeaveModal, currentQuestion, isListening, micFailed, voiceError, interviewStarted])
 
     // Silence detection: auto-submit after 4s of silence (voice mode only)
     useEffect(() => {
@@ -210,7 +163,7 @@ function InterviewPage() {
     const fetchQuestions = async () => {
         try {
             setLoading(true)
-            const response = await fetch(`${API_URL}/interview/${sessionId}`)
+            const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/interview/${sessionId}`)
             if (response.ok) {
                 const data = await response.json()
                 if (data.success && data.data?.questions?.length > 0) {
@@ -220,7 +173,7 @@ function InterviewPage() {
                     return
                 }
             }
-            const startResponse = await fetch(`${API_URL}/interview/start`, {
+            const startResponse = await fetch(`${import.meta.env.VITE_API_URL || ''}/interview/start`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ type: 'mixed' }),
@@ -252,7 +205,6 @@ function InterviewPage() {
         if (isSubmittingRef.current || interviewEndedRef.current) return
         isSubmittingRef.current = true
         setSubmitting(true)
-        setSubmitError(null)
 
         if (isListening) stopListening()
         stopSpeaking()
@@ -272,8 +224,8 @@ function InterviewPage() {
         }
 
         try {
-            console.log(`[InterviewPage] Submitting answer to: ${API_URL}/interview/${sessionId}/answer`)
-            const response = await fetch(`${API_URL}/interview/${sessionId}/answer`, {
+            console.log(`[InterviewPage] Submitting answer for Q: ${currentQuestion.questionId}`)
+            const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/interview/${sessionId}/answer`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -307,7 +259,6 @@ function InterviewPage() {
             }
         } catch (err) {
             console.error('[InterviewPage] Submit answer error:', err)
-            setSubmitError('Connection lost. Please check your internet or retry.')
         }
 
         isSubmittingRef.current = false
@@ -318,7 +269,7 @@ function InterviewPage() {
         killEverything()
         setFinishing(true)
         try {
-            await fetch(`${API_URL}/interview/${sessionId}/complete`, { method: 'POST' })
+            await fetch(`${import.meta.env.VITE_API_URL || ''}/interview/${sessionId}/complete`, { method: 'POST' })
             setTimeout(() => navigate(`/report/${sessionId}`), 4000)
         } catch (err) {
             console.error('Error completing interview:', err)
@@ -505,36 +456,26 @@ function InterviewPage() {
                 {/* TEXT INPUT — always visible when AI is not speaking so user can always type */}
                 {!aiSpeaking && currentQuestion && !finishing && (
                     <div className="fallback-input-container">
-                        {submitError && (
-                            <div className="submit-error-toast">
-                                ⚠️ {submitError}
-                            </div>
-                        )}
-                        <div className="fallback-input-row">
-                            <input
-                                type="text"
-                                className="fallback-input"
-                                placeholder={showTextInput ? "Mic unavailable — type your answer here..." : "Speak or type your answer here..."}
-                                value={currentAnswer}
-                                onChange={(e) => {
-                                    setCurrentAnswer(e.target.value)
-                                    if (submitError) setSubmitError(null)
-                                }}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter' && currentAnswer.trim() && !submitting) {
-                                        handleSubmitAnswer()
-                                    }
-                                }}
-                                disabled={submitting}
-                            />
-                            <button
-                                className="fallback-submit"
-                                onClick={handleSubmitAnswer}
-                                disabled={!currentAnswer.trim() || submitting}
-                            >
-                                {submitting ? '⏳ Processing...' : 'Send ↵'}
-                            </button>
-                        </div>
+                        <input
+                            type="text"
+                            className="fallback-input"
+                            placeholder={showTextInput ? "Mic unavailable — type your answer here..." : "Speak or type your answer here..."}
+                            value={currentAnswer}
+                            onChange={(e) => setCurrentAnswer(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' && currentAnswer.trim() && !submitting) {
+                                    handleSubmitAnswer()
+                                }
+                            }}
+                            disabled={submitting}
+                        />
+                        <button
+                            className="fallback-submit"
+                            onClick={handleSubmitAnswer}
+                            disabled={!currentAnswer.trim() || submitting}
+                        >
+                            {submitting ? '⏳ Processing...' : 'Send ↵'}
+                        </button>
                     </div>
                 )}
             </div>
@@ -577,19 +518,10 @@ function InterviewPage() {
             {/* Bottom bar */}
             <div className="call-controls">
                 <div className="control-left">
-                    {isListening && !aiSpeaking && (
-                        <div className={`mic-live ${connectionStatus}`}>
-                            <div className="mic-meter-mini">
-                                {[...Array(5)].map((_, i) => (
-                                    <div 
-                                        key={i} 
-                                        className={`m-bar ${localMicLevel > (i * 12) ? 'lit' : ''}`} 
-                                    />
-                                ))}
-                            </div>
-                            <span className="mic-status-text">
-                                {connectionStatus === 'reconnecting' ? 'Reconnecting...' : 'Mic Active'}
-                            </span>
+                    {isListening && !aiSpeaking && !voiceError && (
+                        <div className="mic-live">
+                            <span className="mic-live-dot"></span>
+                            Mic on
                         </div>
                     )}
                     {showTextInput && (

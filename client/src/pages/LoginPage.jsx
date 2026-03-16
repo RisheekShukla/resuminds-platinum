@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { Link, useNavigate, useLocation } from 'react-router-dom'
+import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import Navbar from '../components/common/Navbar'
 import './AuthPages.css'
@@ -13,21 +13,6 @@ function LoginPage() {
 
     const { login } = useAuth()
     const navigate = useNavigate()
-    const location = useLocation()
-
-    useEffect(() => {
-        const params = new URLSearchParams(window.location.search);
-    console.log('[Debug] VITE_API_URL:', import.meta.env.VITE_API_URL);
-    console.log('[Debug] Current Token:', params.get('token'));
-        const token = params.get('token');
-        if (token) {
-            localStorage.setItem('resuminds_token', token);
-            setMessage('Social login successful! Redirecting...');
-            setTimeout(() => {
-                window.location.href = '/dashboard'; // Force full reload to refresh AuthContext
-            }, 1000);
-        }
-    }, [location, navigate]);
 
     const handleSubmit = async (e) => {
         e.preventDefault()
@@ -44,15 +29,6 @@ function LoginPage() {
         }
     }
 
-    const handleSocialAuth = (provider) => {
-        setLoading(true)
-        setError('')
-        const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-        window.location.href = `${apiBase}/auth/${provider.toLowerCase()}`;
-    }
-
-    const [message, setMessage] = useState('');
-
     return (
         <div className="auth-page">
             <Navbar />
@@ -67,13 +43,6 @@ function LoginPage() {
                         <div className="auth-alert error-alert animate-fade-in">
                             <span className="alert-icon">⚠️</span>
                             <span>{error}</span>
-                        </div>
-                    )}
-
-                    {message && (
-                        <div className="auth-alert success-alert animate-fade-in">
-                            <span className="alert-icon">✨</span>
-                            <span>{message}</span>
                         </div>
                     )}
 
@@ -94,7 +63,7 @@ function LoginPage() {
                         <div className="form-group">
                             <div className="label-row">
                                 <label htmlFor="password">Password</label>
-                                <Link to="/forgot-password" style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-primary-light)' }}>Forgot password?</Link>
+                                <a href="#forgot" className="forgot-link">Forgot password?</a>
                             </div>
                             <div className="password-input-wrapper">
                                 <input
@@ -131,11 +100,11 @@ function LoginPage() {
                     </div>
 
                     <div className="social-login">
-                        <button type="button" className="social-button google-btn" onClick={() => handleSocialAuth('Google')}>
+                        <button type="button" className="social-button google-btn" onClick={() => alert('Social login coming soon!')}>
                             <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="Google" />
                             Google
                         </button>
-                        <button type="button" className="social-button github-btn" onClick={() => handleSocialAuth('GitHub')}>
+                        <button type="button" className="social-button github-btn" onClick={() => alert('Social login coming soon!')}>
                             <img src="https://upload.wikimedia.org/wikipedia/commons/9/91/Octicons-mark-github.svg" alt="GitHub" />
                             GitHub
                         </button>
