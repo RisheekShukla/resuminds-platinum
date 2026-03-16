@@ -1,13 +1,25 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 
 /**
- * useVoiceInput — Bullet-proof voice input hook (v4)
- * 
- * Major Architecture Update:
- * 1. Intent-Based UI: State tracks whether the user *wants* to listen.
- * 2. Exponential Backoff Scheduler: Dampens rapid restart loops.
- * 3. TTS Locking: Explicit preventions for restart during AI speech.
- * 4. Silent Failure Detection: Combined start-timeout and dead-result detection.
+ * useVoiceInput — v5 "Continuous" Engine
+ *
+ * Root-cause fix for the "network" error loop:
+ *   continuous = false → Chrome opens a fresh WebSocket per session.
+ *   When there is silence the server drops the socket immediately and fires
+ *   onerror("network"). The rapid open/close cycle then gets throttled by
+ *   Chrome which makes it worse.
+ *
+ *   continuous = true → One long-lived WebSocket. The session stays open until
+ *   we explicitly call stop(). No idle-timeout kills, no network spam.
+ *
+ * Other fixes:
+ *   - pendingStartRef: guards against double-start BEFORE onstart fires
+ *     (isRunningRef alone wasn't enough — two callers could both see it false
+ *     in the same tick before the first onstart arrived)
+ *   - resumeAfterTTS: goes through safeStart() with a 400 ms hardware-release
+ *     delay instead of calling startListening() directly
+ *   - networkErrorCountRef: after 5 consecutive network errors → fatal fallback
+ *     to text mode instead of looping forever
  */
 export function useVoiceInput(options = {}) {
     const {
@@ -18,7 +30,7 @@ export function useVoiceInput(options = {}) {
     } = options
 
     // --- State: Drives the UI ---
-    const [isListening, setIsListening] = useState(false) // This now represents "Intent/UI State"
+    const [isListening, setIsListening] = useState(false)
     const [transcript, setTranscript] = useState('')
     const [interimTranscript, setInterimTranscript] = useState('')
     const [isSupported, setIsSupported] = useState(false)
@@ -27,15 +39,16 @@ export function useVoiceInput(options = {}) {
 
     // --- Refs: Engine Logic ---
     const recognitionRef = useRef(null)
-    const shouldListenRef = useRef(false)  // Intent
-    const isSpeakingRef = useRef(false)    // TTS Lock
-    const fatalErrorRef = useRef(false)    // Permanent blockage
-    const restartTimerRef = useRef(null)   // Scheduler
-    const startTimeoutRef = useRef(null)   // Detects silent starts
-    const restartDelayRef = useRef(300)    // Backoff state
-    const sessionStartTimeRef = useRef(null)  // Diagnostic: when onstart fired
-    const startAckedRef = useRef(false)    // True after onstart (avoids stale closure in safety net)
-    const isRunningRef = useRef(false)     // True while recognition session active (prevents double-start)
+    const shouldListenRef = useRef(false)       // User intent
+    const isSpeakingRef = useRef(false)         // TTS lock
+    const fatalErrorRef = useRef(false)         // Permanent stop
+    const restartTimerRef = useRef(null)        // Scheduler
+    const startTimeoutRef = useRef(null)        // Safety net for silent starts
+    const startAckedRef = useRef(false)         // onstart has fired (for safety net)
+    const pendingStartRef = useRef(false)       // start() called but onstart not yet fired
+    const isRunningRef = useRef(false)          // Between onstart and onend
+    const networkErrorCountRef = useRef(0)      // Consecutive network errors
+    const sessionStartTimeRef = useRef(null)    // Diagnostic timing
     const callbacksRef = useRef({ onResult, onError })
 
     useEffect(() => {
@@ -63,10 +76,38 @@ export function useVoiceInput(options = {}) {
         setError(message)
         fatalErrorRef.current = true
         shouldListenRef.current = false
+        pendingStartRef.current = false
+        isRunningRef.current = false
         setIsListening(false)
         cleanupTimers()
-        try { recognitionRef.current.stop() } catch (e) {}
+        try { recognitionRef.current?.abort() } catch (e) {}
         callbacksRef.current.onError(code)
+    }
+
+    // Central start guard — the only place that calls recognition.start()
+    const safeStart = () => {
+        if (!recognitionRef.current || fatalErrorRef.current) return
+        if (isRunningRef.current || pendingStartRef.current) {
+            console.log('[VoiceInput] safeStart skipped: already running or pending')
+            return
+        }
+        pendingStartRef.current = true
+        startAckedRef.current = false
+        try {
+            recognitionRef.current.start()
+            if (startTimeoutRef.current) clearTimeout(startTimeoutRef.current)
+            startTimeoutRef.current = setTimeout(() => {
+                if (shouldListenRef.current && !startAckedRef.current) {
+                    console.warn('[VoiceInput] ⏰ Mic failed to respond to start()')
+                    handleFatalError('Mic initialization timed out.', 'timeout')
+                }
+            }, 3500)
+        } catch (err) {
+            pendingStartRef.current = false
+            if (!err.message?.includes('already started')) {
+                console.warn('[VoiceInput] start() threw:', err.message)
+            }
+        }
     }
 
     // One-time Engine Setup
@@ -81,7 +122,8 @@ export function useVoiceInput(options = {}) {
 
         const createRecognition = () => {
             const recognition = new SpeechRecognition()
-            recognition.continuous = false
+            // continuous = true: one long-lived WebSocket instead of rapid open/close cycles
+            recognition.continuous = true
             recognition.interimResults = interimResults
             recognition.lang = language
             recognition.maxAlternatives = 1
@@ -89,14 +131,14 @@ export function useVoiceInput(options = {}) {
             recognition.onstart = () => {
                 sessionStartTimeRef.current = Date.now()  // Diagnostic
                 startAckedRef.current = true
+                pendingStartRef.current = false
                 isRunningRef.current = true
+                networkErrorCountRef.current = 0
                 console.log('[VoiceInput] ✅ Service Connected')
                 if (startTimeoutRef.current) {
                     clearTimeout(startTimeoutRef.current)
                     startTimeoutRef.current = null
                 }
-                // Only on success do we reset the restart delay
-                restartDelayRef.current = 300 
                 fatalErrorRef.current = false
                 setError(null)
                 setLastResultTimestamp(Date.now())
@@ -104,31 +146,26 @@ export function useVoiceInput(options = {}) {
 
             recognition.onend = () => {
                 isRunningRef.current = false
+                pendingStartRef.current = false
                 const shouldRestart = shouldListenRef.current && !isSpeakingRef.current && !fatalErrorRef.current
                 console.log(`[VoiceInput] Session Ended. Should Restart: ${shouldRestart}`)
 
                 if (shouldRestart) {
-                    // Centralized Scheduler with Backoff
                     if (restartTimerRef.current) clearTimeout(restartTimerRef.current)
-                    
+                    // Back off harder when we've been seeing network errors
+                    const delay = networkErrorCountRef.current > 0
+                        ? Math.min(networkErrorCountRef.current * 800, 3000)
+                        : 150
                     restartTimerRef.current = setTimeout(() => {
-                        if (shouldListenRef.current && !isSpeakingRef.current && recognitionRef.current) {
-                            try {
-                                recognitionRef.current.start()
-                                // Update backoff for next time
-                                restartDelayRef.current = Math.min(restartDelayRef.current * 1.5, 2000)
-                            } catch (err) {
-                                if (!err.message?.includes('already started')) {
-                                    console.warn('[VoiceInput] Buffered restart skipped:', err.message)
-                                }
-                            }
+                        if (shouldListenRef.current && !isSpeakingRef.current && !fatalErrorRef.current) {
+                            safeStart()
                         }
-                    }, restartDelayRef.current)
+                    }, delay)
                 }
             }
 
             recognition.onerror = (event) => {
-                // Diagnostic: log ms between onstart and onerror
+                // Diagnostic: time from onstart to onerror
                 if (sessionStartTimeRef.current != null) {
                     const ms = Date.now() - sessionStartTimeRef.current
                     console.warn(`[VoiceInput] 🔬 DIAG: onerror("${event.error}") ${ms}ms after onstart`)
@@ -138,12 +175,13 @@ export function useVoiceInput(options = {}) {
                     clearTimeout(startTimeoutRef.current)
                     startTimeoutRef.current = null
                 }
+                pendingStartRef.current = false
 
                 console.warn(`[VoiceInput] Engine Error: ${event.error}`)
 
                 switch (event.error) {
                     case 'no-speech':
-                        // Non-fatal, let onend handle the loop
+                        // With continuous = true this rarely fires; non-fatal anyway
                         return
                     case 'audio-capture':
                         handleFatalError('Mic not found.', 'audio-capture')
@@ -153,19 +191,23 @@ export function useVoiceInput(options = {}) {
                         break
                     case 'network':
                     case 'service-not-allowed':
-                        // Transient in v4: we don't kill the loop, let it backoff
-                        setError('Speech service connection issue. Retrying...')
-                        restartDelayRef.current = Math.min(restartDelayRef.current + 1000, 3000) // Progressive penalty
+                        networkErrorCountRef.current += 1
+                        if (networkErrorCountRef.current >= 5) {
+                            handleFatalError(
+                                'Speech service unavailable. Please type your answers.',
+                                'network'
+                            )
+                        } else {
+                            setError(`Speech service issue (${networkErrorCountRef.current}/5). Retrying…`)
+                        }
                         break
                     case 'aborted':
-                        // Result of manual stop()
+                        // Expected: we called stop() or abort() ourselves
                         break
                     default:
-                        // Other errors: allow 2 retries then force fatal
-                        if (restartDelayRef.current > 2500) {
+                        networkErrorCountRef.current += 1
+                        if (networkErrorCountRef.current >= 3) {
                             handleFatalError('Speech service error. Please type answers.', event.error)
-                        } else {
-                            restartDelayRef.current += 500
                         }
                 }
             }
@@ -174,9 +216,7 @@ export function useVoiceInput(options = {}) {
                 let finalText = ''
                 let interim = ''
                 setLastResultTimestamp(Date.now())
-                
-                // Decay backoff on results
-                restartDelayRef.current = Math.max(300, restartDelayRef.current - 200)
+                networkErrorCountRef.current = 0  // Any real result resets the error counter
 
                 for (let i = event.resultIndex; i < event.results.length; i++) {
                     const result = event.results[i]
@@ -202,7 +242,7 @@ export function useVoiceInput(options = {}) {
         return () => {
             cleanupTimers()
             if (recognitionRef.current) {
-                try { recognitionRef.current.stop() } catch (e) {}
+                try { recognitionRef.current.abort() } catch (e) {}
             }
         }
     }, [interimResults, language])
@@ -211,39 +251,21 @@ export function useVoiceInput(options = {}) {
 
     const startListening = useCallback(() => {
         if (!recognitionRef.current || fatalErrorRef.current) return
-        // Avoid double-start: scheduler may have already restarted; consumer effect then calls startListening again
-        if (isRunningRef.current) return
-
         console.log('[VoiceInput] User Intent: START')
         shouldListenRef.current = true
         setIsListening(true)
         setError(null)
         setInterimTranscript('')
-
-        try {
-            startAckedRef.current = false
-            recognitionRef.current.start()
-
-            // Safety Net for Silent Failures (use ref so callback sees current ack, not stale isListening)
-            if (startTimeoutRef.current) clearTimeout(startTimeoutRef.current)
-            startTimeoutRef.current = setTimeout(() => {
-                if (shouldListenRef.current && !startAckedRef.current) {
-                   console.warn('[VoiceInput] ⏰ Mic failed to respond to start()')
-                   handleFatalError('Mic initialization timed out.', 'timeout')
-                }
-            }, 3500)
-        } catch (err) {
-            if (!err.message?.includes('already started')) {
-                console.error('[VoiceInput] Manual Start Error:', err)
-            }
-        }
-    }, [isListening])
+        safeStart()
+    }, [])
 
     const stopListening = useCallback(() => {
         console.log('[VoiceInput] User Intent: STOP')
         shouldListenRef.current = false
         setIsListening(false)
         cleanupTimers()
+        isRunningRef.current = false
+        pendingStartRef.current = false
         if (recognitionRef.current) {
             try { recognitionRef.current.stop() } catch (e) {}
         }
@@ -252,6 +274,9 @@ export function useVoiceInput(options = {}) {
     const pauseForTTS = useCallback(() => {
         console.log('[VoiceInput] TTS Lock: ON')
         isSpeakingRef.current = true
+        cleanupTimers()
+        isRunningRef.current = false
+        pendingStartRef.current = false
         if (recognitionRef.current) {
             try { recognitionRef.current.stop() } catch (e) {}
         }
@@ -260,10 +285,16 @@ export function useVoiceInput(options = {}) {
     const resumeAfterTTS = useCallback(() => {
         console.log('[VoiceInput] TTS Lock: OFF')
         isSpeakingRef.current = false
-        if (shouldListenRef.current) {
-            startListening()
+        if (shouldListenRef.current && !fatalErrorRef.current) {
+            // 400 ms delay lets audio hardware fully release after TTS finishes
+            if (restartTimerRef.current) clearTimeout(restartTimerRef.current)
+            restartTimerRef.current = setTimeout(() => {
+                if (shouldListenRef.current && !isSpeakingRef.current && !fatalErrorRef.current) {
+                    safeStart()
+                }
+            }, 400)
         }
-    }, [startListening])
+    }, [])
 
     const resetTranscript = useCallback(() => {
         setTranscript('')
@@ -272,7 +303,7 @@ export function useVoiceInput(options = {}) {
     }, [])
 
     return {
-        isListening,    // Intent-based
+        isListening,
         isSupported,
         transcript,
         interimTranscript,
