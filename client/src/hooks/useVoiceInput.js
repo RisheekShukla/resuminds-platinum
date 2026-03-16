@@ -47,7 +47,7 @@ export function useVoiceInput(options = {}) {
 
         const createRecognition = () => {
             const recognition = new SpeechRecognition()
-            recognition.continuous = false
+            recognition.continuous = true // Stay open!
             recognition.interimResults = interimResults
             recognition.lang = language
             recognition.maxAlternatives = 1
@@ -77,30 +77,25 @@ export function useVoiceInput(options = {}) {
                 }
 
                 if (isListeningRef.current) {
+                    console.log('[VoiceInput] 🔄 Attempting auto-restart...')
                     restartCountRef.current += 1
-                    if (restartCountRef.current > 20) { // Increased for network stability
+                    if (restartCountRef.current > 20) {
                         console.error('[VoiceInput] Too many restarts')
                         setIsListening(false)
                         isListeningRef.current = false
-                        setError('Mic stopped responding. Use the text box or click mic to retry.')
+                        setError('Mic stopped responding. Check connection and retry.')
                         return
                     }
-                    const delay = Math.min(restartCountRef.current * 300, 2000)
                     if (restartTimerRef.current) clearTimeout(restartTimerRef.current)
                     restartTimerRef.current = setTimeout(() => {
                         if (isListeningRef.current && recognitionRef.current && !fatalErrorRef.current) {
                             try {
                                 recognitionRef.current.start()
                             } catch (err) {
-                                if (!err.message?.includes('already started')) {
-                                    console.error('[VoiceInput] Restart failed:', err.message)
-                                    setIsListening(false)
-                                    isListeningRef.current = false
-                                    setError('Mic restart failed. Use the text box.')
-                                }
+                                // Already started is fine
                             }
                         }
-                    }, delay)
+                    }, 300)
                 } else {
                     setIsListening(false)
                 }
@@ -115,7 +110,8 @@ export function useVoiceInput(options = {}) {
 
                 switch (event.error) {
                     case 'no-speech':
-                        return  // Soft — onend will restart
+                        // In continuous mode, no-speech is just silence
+                        return 
                     case 'aborted':
                         return  // Normal stop()
                     case 'audio-capture':

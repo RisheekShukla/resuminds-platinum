@@ -138,19 +138,23 @@ function InterviewPage() {
     // Auto-start mic after AI finishes speaking
     // ONLY if: mic hasn't fatally failed AND interview is still active
     useEffect(() => {
-        if (!interviewStarted || interviewEndedRef.current || micFailed) return
+        if (!interviewStarted || interviewEndedRef.current || micFailed || finishing || showLeaveModal) {
+            if (isListening) stopListening()
+            return
+        }
 
-        if (!aiSpeaking && !finishing && !showLeaveModal && currentQuestion && !voiceError) {
+        if (aiSpeaking) {
+            if (isListening) stopListening()
+        } else {
+            // AI stopped speaking, start mic after a slight delay
             const timer = setTimeout(() => {
-                if (!isListening && !interviewEndedRef.current && !micFailed) {
+                if (!interviewEndedRef.current && !micFailed && !aiSpeaking) {
                     startListening()
                 }
             }, 500)
             return () => clearTimeout(timer)
-        } else if (aiSpeaking && isListening) {
-            stopListening()
         }
-    }, [aiSpeaking, finishing, showLeaveModal, currentQuestion, isListening, micFailed, voiceError, interviewStarted])
+    }, [aiSpeaking, finishing, showLeaveModal, currentQuestion, micFailed, interviewStarted])
 
     // Silence detection: auto-submit after 4s of silence (voice mode only)
     useEffect(() => {
