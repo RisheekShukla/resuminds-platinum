@@ -35,6 +35,7 @@ export function useVoiceInput(options = {}) {
     const restartDelayRef = useRef(300)    // Backoff state
     const sessionStartTimeRef = useRef(null)  // Diagnostic: when onstart fired
     const startAckedRef = useRef(false)    // True after onstart (avoids stale closure in safety net)
+    const isRunningRef = useRef(false)     // True while recognition session active (prevents double-start)
     const callbacksRef = useRef({ onResult, onError })
 
     useEffect(() => {
@@ -88,6 +89,7 @@ export function useVoiceInput(options = {}) {
             recognition.onstart = () => {
                 sessionStartTimeRef.current = Date.now()  // Diagnostic
                 startAckedRef.current = true
+                isRunningRef.current = true
                 console.log('[VoiceInput] ✅ Service Connected')
                 if (startTimeoutRef.current) {
                     clearTimeout(startTimeoutRef.current)
@@ -101,6 +103,7 @@ export function useVoiceInput(options = {}) {
             }
 
             recognition.onend = () => {
+                isRunningRef.current = false
                 const shouldRestart = shouldListenRef.current && !isSpeakingRef.current && !fatalErrorRef.current
                 console.log(`[VoiceInput] Session Ended. Should Restart: ${shouldRestart}`)
 
@@ -208,6 +211,8 @@ export function useVoiceInput(options = {}) {
 
     const startListening = useCallback(() => {
         if (!recognitionRef.current || fatalErrorRef.current) return
+        // Avoid double-start: scheduler may have already restarted; consumer effect then calls startListening again
+        if (isRunningRef.current) return
 
         console.log('[VoiceInput] User Intent: START')
         shouldListenRef.current = true
