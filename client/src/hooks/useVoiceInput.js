@@ -16,6 +16,7 @@ export function useVoiceInput(options = {}) {
     } = options
 
     const [isListening, setIsListening] = useState(false)
+    const [connectionStatus, setConnectionStatus] = useState('idle') // idle, listening, reconnecting, error
     const [transcript, setTranscript] = useState('')
     const [interimTranscript, setInterimTranscript] = useState('')
     const [isSupported, setIsSupported] = useState(false)
@@ -54,12 +55,12 @@ export function useVoiceInput(options = {}) {
 
             recognition.onstart = () => {
                 console.log('[VoiceInput] ✅ Recognition started')
-                // Clear start timeout — we successfully started!
                 if (startTimeoutRef.current) {
                     clearTimeout(startTimeoutRef.current)
                     startTimeoutRef.current = null
                 }
                 setIsListening(true)
+                setConnectionStatus('listening')
                 isListeningRef.current = true
                 fatalErrorRef.current = false
                 setLastResultTimestamp(Date.now())
@@ -125,19 +126,21 @@ export function useVoiceInput(options = {}) {
                     case 'network':
                         console.warn('[VoiceInput] Network error (transient). Will attempt restart.')
                         setError('Speech service connectivity issue. Reconnecting...')
-                        // Keep isListeningRef.current = true so onend triggers restart
-                        isListeningRef.current = true 
+                        setConnectionStatus('reconnecting')
+                        isListeningRef.current = true // Keep intent to listen
                         fatalErrorRef.current = false 
-                        setIsListening(false) // Update UI state
                         callbacksRef.current.onError(event.error)
-                        return // Exit early to avoid setting ref to false below
+                        return 
                     default:
                         setError(`Speech error: ${event.error}. Use text box.`)
                         fatalErrorRef.current = true
+                        setConnectionStatus('error')
                 }
 
-                setIsListening(false)
-                isListeningRef.current = false
+                if (fatalErrorRef.current) {
+                    setIsListening(false)
+                    isListeningRef.current = false
+                }
                 callbacksRef.current.onError(event.error)
             }
 
@@ -247,6 +250,7 @@ export function useVoiceInput(options = {}) {
 
     return {
         isListening,
+        connectionStatus,
         isSupported,
         transcript,
         interimTranscript,

@@ -42,6 +42,13 @@ function InterviewPage() {
     const [micFailed, setMicFailed] = useState(false) // permanent text-mode flag
     const [submitting, setSubmitting] = useState(false) // visible loading state for Send btn
     const [submitError, setSubmitError] = useState(null)
+    const [localMicLevel, setLocalMicLevel] = useState(0)
+
+    // Audio context for local mic visualization (like the lobby)
+    const audioContextRef = useRef(null)
+    const analyzerRef = useRef(null)
+    const animationFrameRef = useRef(null)
+    const micStreamRef = useRef(null)
 
     // Elapsed timer — starts once loading finishes, stops when interview ends
     useEffect(() => {
@@ -84,6 +91,7 @@ function InterviewPage() {
 
     const {
         isListening,
+        connectionStatus,
         interimTranscript,
         lastResultTimestamp,
         error: voiceError,
@@ -108,19 +116,49 @@ function InterviewPage() {
     const killEverything = useCallback(() => {
         interviewEndedRef.current = true
         if (elapsedTimerRef.current) clearInterval(elapsedTimerRef.current)
+        if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current)
+        if (audioContextRef.current) {
+            try { audioContextRef.current.close() } catch (e) {}
+        }
+        if (micStreamRef.current) {
+            micStreamRef.current.getTracks().forEach(t => t.stop())
+        }
         stopListening()
         stopSpeaking()
     }, [stopListening, stopSpeaking])
 
     // Fetch questions on mount
     useEffect(() => {
-        // Strict mode fix: reset the ref since React might run setup->cleanup->setup
         interviewEndedRef.current = false
         fetchQuestions()
+        setupLocalMic() // Start local mic monitoring immediately
         
-        // Cleanup when component unmounts
         return () => { killEverything() }
     }, [sessionId])
+
+    const setupLocalMic = async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+            micStreamRef.current = stream
+            audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)()
+            const source = audioContextRef.current.createMediaStreamSource(stream)
+            analyzerRef.current = audioContextRef.current.createAnalyser()
+            analyzerRef.current.fftSize = 256
+            source.connect(analyzerRef.current)
+
+            const updateLevel = () => {
+                if (interviewEndedRef.current) return
+                const dataArray = new Uint8Array(analyzerRef.current.frequencyBinCount)
+                analyzerRef.current.getByteFrequencyData(dataArray)
+                const average = dataArray.reduce((a, b) => a + b) / dataArray.length
+                setLocalMicLevel(average)
+                animationFrameRef.current = requestAnimationFrame(updateLevel)
+            }
+            updateLevel()
+        } catch (err) {
+            console.warn('[InterviewPage] Local mic visualization failed:', err)
+        }
+    }
 
     // Auto-speak subsequent questions (index > 0)
     useEffect(() => {
@@ -539,10 +577,19 @@ function InterviewPage() {
             {/* Bottom bar */}
             <div className="call-controls">
                 <div className="control-left">
-                    {isListening && !aiSpeaking && !voiceError && (
-                        <div className="mic-live">
-                            <span className="mic-live-dot"></span>
-                            Mic on
+                    {isListening && !aiSpeaking && (
+                        <div className={`mic-live ${connectionStatus}`}>
+                            <div className="mic-meter-mini">
+                                {[...Array(5)].map((_, i) => (
+                                    <div 
+                                        key={i} 
+                                        className={`m-bar ${localMicLevel > (i * 12) ? 'lit' : ''}`} 
+                                    />
+                                ))}
+                            </div>
+                            <span className="mic-status-text">
+                                {connectionStatus === 'reconnecting' ? 'Reconnecting...' : 'Mic Active'}
+                            </span>
                         </div>
                     )}
                     {showTextInput && (
