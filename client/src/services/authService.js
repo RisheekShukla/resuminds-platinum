@@ -1,4 +1,7 @@
-const API_URL = import.meta.env.VITE_API_URL || '';
+const rawUrl = import.meta.env.VITE_API_URL || '';
+const API_URL = rawUrl.endsWith('/') ? rawUrl.slice(0, -1) : rawUrl;
+
+console.log('[Debug] authService.js configured with API_URL:', API_URL || '(empty/relative)');
 
 /**
  * Authentication Service

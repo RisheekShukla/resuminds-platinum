@@ -16,7 +16,9 @@ function LoginPage() {
     const location = useLocation()
 
     useEffect(() => {
-        const params = new URLSearchParams(location.search);
+        const params = new URLSearchParams(window.location.search);
+    console.log('[Debug] VITE_API_URL:', import.meta.env.VITE_API_URL);
+    console.log('[Debug] Current Token:', params.get('token'));
         const token = params.get('token');
         if (token) {
             localStorage.setItem('resuminds_token', token);

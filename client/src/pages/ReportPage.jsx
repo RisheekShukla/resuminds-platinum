@@ -18,6 +18,9 @@ const metricLabels = {
     communicationEfficiency: { label: 'Communication', icon: '💬', desc: 'Clarity and structure' }
 }
 
+const rawApiUrl = import.meta.env.VITE_API_URL || '';
+const API_URL = rawApiUrl.endsWith('/') ? rawApiUrl.slice(0, -1) : rawApiUrl;
+
 function ReportPage() {
     const { sessionId } = useParams()
     const [report, setReport] = useState(null)
@@ -39,7 +42,7 @@ function ReportPage() {
     const fetchReport = async () => {
         try {
             setLoading(true)
-            const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/report/${sessionId}`)
+            const response = await fetch(`${API_URL}/report/${sessionId}`)
             if (response.ok) {
                 const data = await response.json()
                 if (data.success && data.data) {

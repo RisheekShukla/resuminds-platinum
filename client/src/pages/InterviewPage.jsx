@@ -14,6 +14,10 @@ const personaMap = {
     'founder': { name: 'Sam', role: 'Startup Founder' }
 }
 
+const rawApiUrl = import.meta.env.VITE_API_URL || '';
+const API_URL = rawApiUrl.endsWith('/') ? rawApiUrl.slice(0, -1) : rawApiUrl;
+console.log('[Debug] InterviewPage API_URL:', API_URL || '(relative)');
+
 function InterviewPage() {
     const { sessionId } = useParams()
     const navigate = useNavigate()
@@ -164,7 +168,7 @@ function InterviewPage() {
     const fetchQuestions = async () => {
         try {
             setLoading(true)
-            const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/interview/${sessionId}`)
+            const response = await fetch(`${API_URL}/interview/${sessionId}`)
             if (response.ok) {
                 const data = await response.json()
                 if (data.success && data.data?.questions?.length > 0) {
@@ -174,7 +178,7 @@ function InterviewPage() {
                     return
                 }
             }
-            const startResponse = await fetch(`${import.meta.env.VITE_API_URL || ''}/interview/start`, {
+            const startResponse = await fetch(`${API_URL}/interview/start`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ type: 'mixed' }),
@@ -226,8 +230,8 @@ function InterviewPage() {
         }
 
         try {
-            console.log(`[InterviewPage] Submitting answer for Q: ${currentQuestion.questionId}`)
-            const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/interview/${sessionId}/answer`, {
+            console.log(`[InterviewPage] Submitting answer to: ${API_URL}/interview/${sessionId}/answer`)
+            const response = await fetch(`${API_URL}/interview/${sessionId}/answer`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -272,7 +276,7 @@ function InterviewPage() {
         killEverything()
         setFinishing(true)
         try {
-            await fetch(`${import.meta.env.VITE_API_URL || ''}/interview/${sessionId}/complete`, { method: 'POST' })
+            await fetch(`${API_URL}/interview/${sessionId}/complete`, { method: 'POST' })
             setTimeout(() => navigate(`/report/${sessionId}`), 4000)
         } catch (err) {
             console.error('Error completing interview:', err)

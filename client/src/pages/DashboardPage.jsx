@@ -22,6 +22,9 @@ ChartJS.register(
     CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, RadialLinearScale, Filler
 )
 
+const rawApiUrl = import.meta.env.VITE_API_URL || '';
+const API_URL = rawApiUrl.endsWith('/') ? rawApiUrl.slice(0, -1) : rawApiUrl;
+
 function DashboardPage() {
     const { user } = useAuth()
     const [sessions, setSessions] = useState([])
@@ -40,7 +43,7 @@ function DashboardPage() {
     const fetchDashboardData = async () => {
         setLoading(true)
         try {
-            const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/history/sessions`)
+            const response = await fetch(`${API_URL}/history/sessions`)
             if (response.ok) {
                 const data = await response.json()
                 if (data.success) {
