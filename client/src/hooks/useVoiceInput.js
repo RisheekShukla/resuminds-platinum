@@ -78,7 +78,7 @@ export function useVoiceInput(options = {}) {
 
                 if (isListeningRef.current) {
                     restartCountRef.current += 1
-                    if (restartCountRef.current > 10) {
+                    if (restartCountRef.current > 20) { // Increased for network stability
                         console.error('[VoiceInput] Too many restarts')
                         setIsListening(false)
                         isListeningRef.current = false
@@ -128,9 +128,13 @@ export function useVoiceInput(options = {}) {
                         break
                     case 'network':
                         console.warn('[VoiceInput] Network error (transient). Will attempt restart.')
-                        setError('Speech service connection issue. Retrying...')
-                        fatalErrorRef.current = false // Make non-fatal to allow onend to restart
-                        break
+                        setError('Speech service connectivity issue. Reconnecting...')
+                        // Keep isListeningRef.current = true so onend triggers restart
+                        isListeningRef.current = true 
+                        fatalErrorRef.current = false 
+                        setIsListening(false) // Update UI state
+                        callbacksRef.current.onError(event.error)
+                        return // Exit early to avoid setting ref to false below
                     default:
                         setError(`Speech error: ${event.error}. Use text box.`)
                         fatalErrorRef.current = true

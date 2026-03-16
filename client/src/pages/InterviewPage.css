@@ -233,10 +233,26 @@
 /* Fallback Text Input */
 .fallback-input-container {
     display: flex;
-    gap: var(--space-sm);
+    flex-direction: column;
+    gap: 8px;
     margin-top: var(--space-md);
     padding-top: var(--space-md);
     border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.submit-error-toast {
+    font-size: 0.75rem;
+    color: #fca5a5;
+    background: rgba(239, 68, 68, 0.1);
+    padding: 6px 12px;
+    border-radius: 6px;
+    margin-bottom: 4px;
+    animation: fade-in 0.3s ease;
+}
+
+.fallback-input-row {
+    display: flex;
+    gap: var(--space-sm);
 }
 
 .fallback-input {

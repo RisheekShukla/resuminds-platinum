@@ -37,6 +37,7 @@ function InterviewPage() {
     const [leaving, setLeaving] = useState(false)
     const [micFailed, setMicFailed] = useState(false) // permanent text-mode flag
     const [submitting, setSubmitting] = useState(false) // visible loading state for Send btn
+    const [submitError, setSubmitError] = useState(null)
 
     // Elapsed timer — starts once loading finishes, stops when interview ends
     useEffect(() => {
@@ -205,6 +206,7 @@ function InterviewPage() {
         if (isSubmittingRef.current || interviewEndedRef.current) return
         isSubmittingRef.current = true
         setSubmitting(true)
+        setSubmitError(null)
 
         if (isListening) stopListening()
         stopSpeaking()
@@ -259,6 +261,7 @@ function InterviewPage() {
             }
         } catch (err) {
             console.error('[InterviewPage] Submit answer error:', err)
+            setSubmitError('Connection lost. Please check your internet or retry.')
         }
 
         isSubmittingRef.current = false
@@ -456,26 +459,36 @@ function InterviewPage() {
                 {/* TEXT INPUT — always visible when AI is not speaking so user can always type */}
                 {!aiSpeaking && currentQuestion && !finishing && (
                     <div className="fallback-input-container">
-                        <input
-                            type="text"
-                            className="fallback-input"
-                            placeholder={showTextInput ? "Mic unavailable — type your answer here..." : "Speak or type your answer here..."}
-                            value={currentAnswer}
-                            onChange={(e) => setCurrentAnswer(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter' && currentAnswer.trim() && !submitting) {
-                                    handleSubmitAnswer()
-                                }
-                            }}
-                            disabled={submitting}
-                        />
-                        <button
-                            className="fallback-submit"
-                            onClick={handleSubmitAnswer}
-                            disabled={!currentAnswer.trim() || submitting}
-                        >
-                            {submitting ? '⏳ Processing...' : 'Send ↵'}
-                        </button>
+                        {submitError && (
+                            <div className="submit-error-toast">
+                                ⚠️ {submitError}
+                            </div>
+                        )}
+                        <div className="fallback-input-row">
+                            <input
+                                type="text"
+                                className="fallback-input"
+                                placeholder={showTextInput ? "Mic unavailable — type your answer here..." : "Speak or type your answer here..."}
+                                value={currentAnswer}
+                                onChange={(e) => {
+                                    setCurrentAnswer(e.target.value)
+                                    if (submitError) setSubmitError(null)
+                                }}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && currentAnswer.trim() && !submitting) {
+                                        handleSubmitAnswer()
+                                    }
+                                }}
+                                disabled={submitting}
+                            />
+                            <button
+                                className="fallback-submit"
+                                onClick={handleSubmitAnswer}
+                                disabled={!currentAnswer.trim() || submitting}
+                            >
+                                {submitting ? '⏳ Processing...' : 'Send ↵'}
+                            </button>
+                        </div>
                     </div>
                 )}
             </div>
