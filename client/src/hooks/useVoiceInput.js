@@ -139,17 +139,20 @@ export function useVoiceInput(options = {}) {
                         handleFatalError('Mic access denied.', 'not-allowed')
                         break
                     case 'network':
+                    case 'service-not-allowed':
                         // Transient in v4: we don't kill the loop, let it backoff
                         setError('Speech service connection issue. Retrying...')
-                        restartDelayRef.current = 2000 // Force long backoff
+                        restartDelayRef.current = Math.min(restartDelayRef.current + 1000, 3000) // Progressive penalty
                         break
                     case 'aborted':
                         // Result of manual stop()
                         break
                     default:
-                        // Other errors: allow 1 retry then force fatal if immediate
-                        if (restartDelayRef.current > 1500) {
+                        // Other errors: allow 2 retries then force fatal
+                        if (restartDelayRef.current > 2500) {
                             handleFatalError('Speech service error. Please type answers.', event.error)
+                        } else {
+                            restartDelayRef.current += 500
                         }
                 }
             }
