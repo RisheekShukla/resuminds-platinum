@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 
 /**
- * useVoiceInput — Bullet-proof voice input hook (v3)
- *
- * Key principle: NEVER trust the browser to fire events reliably.
- * Uses a startTimeout to detect silent failures where start() doesn't 
- * throw but also never fires onstart/onerror.
+ * useVoiceInput — Bullet-proof voice input hook (v4)
+ * 
+ * Major Architecture Update:
+ * 1. Intent-Based UI: State tracks whether the user *wants* to listen.
+ * 2. Exponential Backoff Scheduler: Dampens rapid restart loops.
+ * 3. TTS Locking: Explicit preventions for restart during AI speech.
+ * 4. Silent Failure Detection: Combined start-timeout and dead-result detection.
  */
 export function useVoiceInput(options = {}) {
     const {
@@ -15,33 +17,62 @@ export function useVoiceInput(options = {}) {
         onError = () => {},
     } = options
 
-    const [isListening, setIsListening] = useState(false)
+    // --- State: Drives the UI ---
+    const [isListening, setIsListening] = useState(false) // This now represents "Intent/UI State"
     const [transcript, setTranscript] = useState('')
     const [interimTranscript, setInterimTranscript] = useState('')
     const [isSupported, setIsSupported] = useState(false)
     const [error, setError] = useState(null)
     const [lastResultTimestamp, setLastResultTimestamp] = useState(Date.now())
 
+    // --- Refs: Engine Logic ---
     const recognitionRef = useRef(null)
-    const isListeningRef = useRef(false)
-    const fatalErrorRef = useRef(false)
-    const restartTimerRef = useRef(null)
-    const startTimeoutRef = useRef(null)       // NEW: detects silent start failures
+    const shouldListenRef = useRef(false)  // Intent
+    const isSpeakingRef = useRef(false)    // TTS Lock
+    const fatalErrorRef = useRef(false)    // Permanent blockage
+    const restartTimerRef = useRef(null)   // Scheduler
+    const startTimeoutRef = useRef(null)   // Detects silent starts
+    const restartDelayRef = useRef(300)    // Backoff state
     const callbacksRef = useRef({ onResult, onError })
-    const restartCountRef = useRef(0)
 
     useEffect(() => {
         callbacksRef.current = { onResult, onError }
     }, [onResult, onError])
 
-    // One-time setup
+    // Cleanup on unmount
+    useEffect(() => {
+        return () => {
+            shouldListenRef.current = false
+            cleanupTimers()
+            if (recognitionRef.current) {
+                try { recognitionRef.current.abort() } catch (e) {}
+            }
+        }
+    }, [])
+
+    const cleanupTimers = () => {
+        if (restartTimerRef.current) clearTimeout(restartTimerRef.current)
+        if (startTimeoutRef.current) clearTimeout(startTimeoutRef.current)
+    }
+
+    const handleFatalError = (message, code) => {
+        console.error(`[VoiceInput] Fatal Error: ${code} - ${message}`)
+        setError(message)
+        fatalErrorRef.current = true
+        shouldListenRef.current = false
+        setIsListening(false)
+        cleanupTimers()
+        try { recognitionRef.current.stop() } catch (e) {}
+        callbacksRef.current.onError(code)
+    }
+
+    // One-time Engine Setup
     useEffect(() => {
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
         setIsSupported(!!SpeechRecognition)
 
         if (!SpeechRecognition) {
-            console.warn('[VoiceInput] SpeechRecognition not supported')
-            setError('Voice input not supported in this browser. Use the text box to answer.')
+            setError('Voice input not supported in this browser.')
             return
         }
 
@@ -53,99 +84,83 @@ export function useVoiceInput(options = {}) {
             recognition.maxAlternatives = 1
 
             recognition.onstart = () => {
-                console.log('[VoiceInput] ✅ Recognition started')
-                // Clear start timeout — we successfully started!
+                console.log('[VoiceInput] ✅ Service Connected')
                 if (startTimeoutRef.current) {
                     clearTimeout(startTimeoutRef.current)
                     startTimeoutRef.current = null
                 }
-                setIsListening(true)
-                isListeningRef.current = true
+                // Only on success do we reset the restart delay
+                restartDelayRef.current = 300 
                 fatalErrorRef.current = false
-                setLastResultTimestamp(Date.now())
                 setError(null)
-                restartCountRef.current = 0
+                setLastResultTimestamp(Date.now())
             }
 
             recognition.onend = () => {
-                console.log('[VoiceInput] Recognition ended. fatal:', fatalErrorRef.current, 'shouldListen:', isListeningRef.current)
+                const shouldRestart = shouldListenRef.current && !isSpeakingRef.current && !fatalErrorRef.current
+                console.log(`[VoiceInput] Session Ended. Should Restart: ${shouldRestart}`)
 
-                if (fatalErrorRef.current) {
-                    setIsListening(false)
-                    isListeningRef.current = false
-                    return
-                }
-
-                if (isListeningRef.current) {
-                    restartCountRef.current += 1
-                    if (restartCountRef.current > 10) {
-                        console.error('[VoiceInput] Too many restarts')
-                        setIsListening(false)
-                        isListeningRef.current = false
-                        setError('Mic stopped responding. Use the text box or click mic to retry.')
-                        return
-                    }
-                    const delay = Math.min(restartCountRef.current * 300, 2000)
+                if (shouldRestart) {
+                    // Centralized Scheduler with Backoff
                     if (restartTimerRef.current) clearTimeout(restartTimerRef.current)
+                    
                     restartTimerRef.current = setTimeout(() => {
-                        if (isListeningRef.current && recognitionRef.current && !fatalErrorRef.current) {
+                        if (shouldListenRef.current && !isSpeakingRef.current && recognitionRef.current) {
                             try {
                                 recognitionRef.current.start()
+                                // Update backoff for next time
+                                restartDelayRef.current = Math.min(restartDelayRef.current * 1.5, 2000)
                             } catch (err) {
                                 if (!err.message?.includes('already started')) {
-                                    console.error('[VoiceInput] Restart failed:', err.message)
-                                    setIsListening(false)
-                                    isListeningRef.current = false
-                                    setError('Mic restart failed. Use the text box.')
+                                    console.warn('[VoiceInput] Buffered restart skipped:', err.message)
                                 }
                             }
                         }
-                    }, delay)
-                } else {
-                    setIsListening(false)
+                    }, restartDelayRef.current)
                 }
             }
 
             recognition.onerror = (event) => {
-                console.error('[VoiceInput] Error:', event.error)
                 if (startTimeoutRef.current) {
                     clearTimeout(startTimeoutRef.current)
                     startTimeoutRef.current = null
                 }
 
+                console.warn(`[VoiceInput] Engine Error: ${event.error}`)
+
                 switch (event.error) {
                     case 'no-speech':
-                        return  // Soft — onend will restart
-                    case 'aborted':
-                        return  // Normal stop()
+                        // Non-fatal, let onend handle the loop
+                        return
                     case 'audio-capture':
-                        setError('No microphone found. Check mic is connected.')
-                        fatalErrorRef.current = true
+                        handleFatalError('Mic not found.', 'audio-capture')
                         break
                     case 'not-allowed':
-                        setError('Mic access denied. Allow in browser settings.')
-                        fatalErrorRef.current = true
+                        handleFatalError('Mic access denied.', 'not-allowed')
                         break
                     case 'network':
-                        console.warn('[VoiceInput] Network error (transient). Will attempt restart.')
+                        // Transient in v4: we don't kill the loop, let it backoff
                         setError('Speech service connection issue. Retrying...')
-                        fatalErrorRef.current = false // Make non-fatal to allow onend to restart
+                        restartDelayRef.current = 2000 // Force long backoff
+                        break
+                    case 'aborted':
+                        // Result of manual stop()
                         break
                     default:
-                        setError(`Speech error: ${event.error}. Use text box.`)
-                        fatalErrorRef.current = true
+                        // Other errors: allow 1 retry then force fatal if immediate
+                        if (restartDelayRef.current > 1500) {
+                            handleFatalError('Speech service error. Please type answers.', event.error)
+                        }
                 }
-
-                setIsListening(false)
-                isListeningRef.current = false
-                callbacksRef.current.onError(event.error)
             }
 
             recognition.onresult = (event) => {
                 let finalText = ''
                 let interim = ''
                 setLastResultTimestamp(Date.now())
-                restartCountRef.current = 0
+                
+                // Decay backoff on results
+                restartDelayRef.current = Math.max(300, restartDelayRef.current - 200)
 
                 for (let i = event.resultIndex; i < event.results.length; i++) {
                     const result = event.results[i]
@@ -157,7 +172,6 @@ export function useVoiceInput(options = {}) {
                 }
 
                 if (finalText) {
-                    console.log('[VoiceInput] Final:', finalText.trim())
                     setTranscript(prev => prev + finalText)
                     callbacksRef.current.onResult(finalText.trim())
                 }
@@ -170,74 +184,67 @@ export function useVoiceInput(options = {}) {
         recognitionRef.current = createRecognition()
 
         return () => {
-            if (restartTimerRef.current) clearTimeout(restartTimerRef.current)
-            if (startTimeoutRef.current) clearTimeout(startTimeoutRef.current)
-            isListeningRef.current = false
+            cleanupTimers()
             if (recognitionRef.current) {
-                try { recognitionRef.current.stop() } catch (e) { /* ignore */ }
+                try { recognitionRef.current.stop() } catch (e) {}
             }
         }
     }, [interimResults, language])
 
-    const startListening = useCallback(() => {
-        if (!recognitionRef.current) {
-            setError('Speech recognition not available. Use the text box.')
-            return
-        }
+    // --- Exposed Actions ---
 
-        console.log('[VoiceInput] startListening() called')
-        fatalErrorRef.current = false
+    const startListening = useCallback(() => {
+        if (!recognitionRef.current || fatalErrorRef.current) return
+
+        console.log('[VoiceInput] User Intent: START')
+        shouldListenRef.current = true
+        setIsListening(true)
         setError(null)
         setInterimTranscript('')
-        setLastResultTimestamp(Date.now())
-        isListeningRef.current = true
-        restartCountRef.current = 0
 
         try {
             recognitionRef.current.start()
 
-            // ** SAFETY NET ** 
-            // If onstart doesn't fire within 3 seconds, assume silent failure.
-            // This catches cases where start() doesn't throw but also never triggers events.
+            // Safety Net for Silent Failures
             if (startTimeoutRef.current) clearTimeout(startTimeoutRef.current)
             startTimeoutRef.current = setTimeout(() => {
-                if (!fatalErrorRef.current && isListeningRef.current) {
-                    // Check: did onstart ever fire? If isListening is still false, it didn't.
-                    // But we can't read React state here, so check if recognition is actually active
-                    console.warn('[VoiceInput] ⏰ Start timeout — mic may have failed silently')
-                    fatalErrorRef.current = true
-                    isListeningRef.current = false
-                    setIsListening(false)
-                    setError('Mic failed to start. Use the text box to type your answers.')
-                    callbacksRef.current.onError('timeout')
-                    try { recognitionRef.current.stop() } catch (e) { /* ignore */ }
+                if (shouldListenRef.current && !isListening) {
+                   console.warn('[VoiceInput] ⏰ Mic failed to respond to start()')
+                   handleFatalError('Mic initialization timed out.', 'timeout')
                 }
-            }, 3000)
-
+            }, 3500)
         } catch (err) {
-            if (err.message?.includes('already started')) {
-                setIsListening(true)
-                return
+            if (!err.message?.includes('already started')) {
+                console.error('[VoiceInput] Manual Start Error:', err)
             }
-            console.error('[VoiceInput] Start error:', err)
-            setError('Could not start mic. Use the text box.')
-            isListeningRef.current = false
-            fatalErrorRef.current = true
-            callbacksRef.current.onError('start-failed')
         }
-    }, [])
+    }, [isListening])
 
     const stopListening = useCallback(() => {
-        console.log('[VoiceInput] stopListening() called')
-        isListeningRef.current = false
-        if (restartTimerRef.current) clearTimeout(restartTimerRef.current)
-        if (startTimeoutRef.current) clearTimeout(startTimeoutRef.current)
-        if (recognitionRef.current) {
-            try { recognitionRef.current.stop() } catch (e) { /* ignore */ }
-        }
+        console.log('[VoiceInput] User Intent: STOP')
+        shouldListenRef.current = false
         setIsListening(false)
-        setInterimTranscript('')
+        cleanupTimers()
+        if (recognitionRef.current) {
+            try { recognitionRef.current.stop() } catch (e) {}
+        }
     }, [])
+
+    const pauseForTTS = useCallback(() => {
+        console.log('[VoiceInput] TTS Lock: ON')
+        isSpeakingRef.current = true
+        if (recognitionRef.current) {
+            try { recognitionRef.current.stop() } catch (e) {}
+        }
+    }, [])
+
+    const resumeAfterTTS = useCallback(() => {
+        console.log('[VoiceInput] TTS Lock: OFF')
+        isSpeakingRef.current = false
+        if (shouldListenRef.current) {
+            startListening()
+        }
+    }, [startListening])
 
     const resetTranscript = useCallback(() => {
         setTranscript('')
@@ -246,15 +253,16 @@ export function useVoiceInput(options = {}) {
     }, [])
 
     return {
-        isListening,
+        isListening,    // Intent-based
         isSupported,
         transcript,
         interimTranscript,
-        lastResultTimestamp,
         error,
         startListening,
         stopListening,
-        resetTranscript,
+        pauseForTTS,
+        resumeAfterTTS,
+        resetTranscript
     }
 }
 

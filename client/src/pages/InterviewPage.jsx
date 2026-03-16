@@ -80,10 +80,11 @@ function InterviewPage() {
     const {
         isListening,
         interimTranscript,
-        lastResultTimestamp,
         error: voiceError,
         startListening,
         stopListening,
+        pauseForTTS,
+        resumeAfterTTS,
         resetTranscript,
     } = useVoiceInput({
         onResult: onVoiceResult,
@@ -130,22 +131,16 @@ function InterviewPage() {
         }
     }, [currentIndex, questions, interviewStarted])
 
-    // Auto-start mic after AI finishes speaking
-    // ONLY if: mic hasn't fatally failed AND interview is still active
+    // Auto-lock mic while AI is speaking
     useEffect(() => {
         if (!interviewStarted || interviewEndedRef.current || micFailed) return
 
-        if (!aiSpeaking && !finishing && !showLeaveModal && currentQuestion && !voiceError) {
-            const timer = setTimeout(() => {
-                if (!isListening && !interviewEndedRef.current && !micFailed) {
-                    startListening()
-                }
-            }, 500)
-            return () => clearTimeout(timer)
-        } else if (aiSpeaking && isListening) {
-            stopListening()
+        if (aiSpeaking) {
+            pauseForTTS()
+        } else if (!finishing && !showLeaveModal && currentQuestion && !voiceError) {
+            resumeAfterTTS()
         }
-    }, [aiSpeaking, finishing, showLeaveModal, currentQuestion, isListening, micFailed, voiceError, interviewStarted])
+    }, [aiSpeaking, finishing, showLeaveModal, currentQuestion, micFailed, voiceError, interviewStarted, pauseForTTS, resumeAfterTTS])
 
     // Silence detection: auto-submit after 4s of silence (voice mode only)
     useEffect(() => {
