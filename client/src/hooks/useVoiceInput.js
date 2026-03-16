@@ -257,6 +257,7 @@ export function useVoiceInput(options = {}) {
         isSupported,
         transcript,
         interimTranscript,
+        lastResultTimestamp,
         error,
         startListening,
         stopListening,

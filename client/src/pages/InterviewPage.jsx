@@ -80,6 +80,7 @@ function InterviewPage() {
     const {
         isListening,
         interimTranscript,
+        lastResultTimestamp,
         error: voiceError,
         startListening,
         stopListening,
