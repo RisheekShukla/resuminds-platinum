@@ -33,6 +33,8 @@ export function useVoiceInput(options = {}) {
     const restartTimerRef = useRef(null)   // Scheduler
     const startTimeoutRef = useRef(null)   // Detects silent starts
     const restartDelayRef = useRef(300)    // Backoff state
+    const sessionStartTimeRef = useRef(null)  // Diagnostic: when onstart fired
+    const startAckedRef = useRef(false)    // True after onstart (avoids stale closure in safety net)
     const callbacksRef = useRef({ onResult, onError })
 
     useEffect(() => {
@@ -84,6 +86,8 @@ export function useVoiceInput(options = {}) {
             recognition.maxAlternatives = 1
 
             recognition.onstart = () => {
+                sessionStartTimeRef.current = Date.now()  // Diagnostic
+                startAckedRef.current = true
                 console.log('[VoiceInput] ✅ Service Connected')
                 if (startTimeoutRef.current) {
                     clearTimeout(startTimeoutRef.current)
@@ -121,6 +125,12 @@ export function useVoiceInput(options = {}) {
             }
 
             recognition.onerror = (event) => {
+                // Diagnostic: log ms between onstart and onerror
+                if (sessionStartTimeRef.current != null) {
+                    const ms = Date.now() - sessionStartTimeRef.current
+                    console.warn(`[VoiceInput] 🔬 DIAG: onerror("${event.error}") ${ms}ms after onstart`)
+                    sessionStartTimeRef.current = null
+                }
                 if (startTimeoutRef.current) {
                     clearTimeout(startTimeoutRef.current)
                     startTimeoutRef.current = null
@@ -206,12 +216,13 @@ export function useVoiceInput(options = {}) {
         setInterimTranscript('')
 
         try {
+            startAckedRef.current = false
             recognitionRef.current.start()
 
-            // Safety Net for Silent Failures
+            // Safety Net for Silent Failures (use ref so callback sees current ack, not stale isListening)
             if (startTimeoutRef.current) clearTimeout(startTimeoutRef.current)
             startTimeoutRef.current = setTimeout(() => {
-                if (shouldListenRef.current && !isListening) {
+                if (shouldListenRef.current && !startAckedRef.current) {
                    console.warn('[VoiceInput] ⏰ Mic failed to respond to start()')
                    handleFatalError('Mic initialization timed out.', 'timeout')
                 }
